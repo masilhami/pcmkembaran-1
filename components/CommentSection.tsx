@@ -28,8 +28,8 @@ export default function CommentSection({ slug }: { slug: string }) {
     fetchComments()
 
     const getUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data?.user) setUser(data.user)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setUser(user)
     }
     getUser()
 
@@ -37,9 +37,14 @@ export default function CommentSection({ slug }: { slug: string }) {
       if (event === 'SIGNED_IN' && session) {
         setUser(session.user)
         setIsGuest(false)
-        if (typeof window !== 'undefined') window.history.replaceState(null, '', window.location.pathname)
+        // Bersihkan URL dari query params login
+        if (typeof window !== 'undefined') {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
       }
-      if (event === 'SIGNED_OUT') setUser(null)
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+      }
     })
 
     const channel = supabase.channel(`comments-realtime-${slug}`)
@@ -57,10 +62,8 @@ export default function CommentSection({ slug }: { slug: string }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.content.trim()) return
-    
     setLoading(true)
 
-    // Ambil foto profil dari Google jika ada
     const googleAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
 
     const commentData = {
@@ -68,7 +71,7 @@ export default function CommentSection({ slug }: { slug: string }) {
       content: formData.content,
       name: user ? (user.user_metadata?.full_name || user.email) : formData.name,
       email: user ? user.email : formData.email,
-      avatar_url: googleAvatar, // SIMPAN FOTO PROFIL KE DB
+      avatar_url: googleAvatar,
       website_url: formData.website || null,
       user_id: user?.id || null,
       is_guest: !user,
@@ -94,29 +97,26 @@ export default function CommentSection({ slug }: { slug: string }) {
 
   const handleGoogleLogin = async () => {
     if (!supabase) return
-    // FIX: Tambahkan #komentar agar tidak scroll ke atas setelah login
-    const redirectUrl = window.location.origin + window.location.pathname + '#komentar'
+    
+    // STRATEGI BARU: Arahkan ke rute callback internal
+    const redirectUrl = `${window.location.origin}/auth/callback?next=${window.location.pathname}`
     
     await supabase.auth.signInWithOAuth({ 
       provider: 'google', 
-      options: { redirectTo: redirectUrl } 
+      options: { 
+        redirectTo: redirectUrl,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      } 
     })
   }
 
-  const scrollToForm = (comment: any) => {
-    setReplyTo(comment)
-    if (!user) setIsGuest(true)
-    formRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  // Komponen Helper Avatar
   const Avatar = ({ name, url, size = "md" }: { name: string, url?: string, size?: "sm" | "md" }) => {
     const dim = size === "sm" ? "w-8 h-8 text-xs" : "w-11 h-11 text-lg";
     const rounded = size === "sm" ? "rounded-lg" : "rounded-2xl";
-
-    if (url) {
-      return <img src={url} className={`${dim} ${rounded} object-cover shadow-sm`} alt={name} />
-    }
+    if (url) return <img src={url} className={`${dim} ${rounded} object-cover shadow-sm`} alt={name} />
     return (
       <div className={`${dim} ${rounded} bg-gradient-to-br from-[#ffc107] to-[#ffd54f] flex items-center justify-center font-black text-[#004a8e] shrink-0 uppercase shadow-sm`}>
         {name ? name.charAt(0) : '?'}
@@ -145,7 +145,7 @@ export default function CommentSection({ slug }: { slug: string }) {
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-top-2">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {replyTo && (
               <div className="flex justify-between items-center p-3 bg-[#fff8e1] rounded-xl border border-[#ffc107] mb-2">
                 <p className="text-xs font-bold text-[#854d0e]">Membalas: <span className="italic">{replyTo.name}</span></p>
@@ -166,12 +166,12 @@ export default function CommentSection({ slug }: { slug: string }) {
 
             {!user && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input required placeholder="Nama Anda*" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#ffc107] transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required type="email" placeholder="Email*" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#ffc107] transition-all" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input required placeholder="Nama Anda*" className="p-4 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#ffc107]" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input required type="email" placeholder="Email*" className="p-4 bg-slate-50 rounded-xl ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#ffc107]" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
             )}
 
-            <textarea required value={formData.content} placeholder="Tuliskan komentar Anda..." className="w-full p-5 h-32 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#004a8e] transition-all" onChange={e => setFormData({...formData, content: e.target.value})} />
+            <textarea required value={formData.content} placeholder="Tuliskan komentar Anda..." className="w-full p-5 h-32 bg-slate-50 rounded-2xl ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#004a8e]" onChange={e => setFormData({...formData, content: e.target.value})} />
             
             <div className="flex justify-end gap-3 pt-2">
               <button disabled={loading} className="bg-[#004a8e] text-white px-10 py-4 rounded-xl font-black uppercase text-xs hover:bg-[#ffc107] hover:text-[#004a8e] transition-all shadow-lg">
@@ -182,6 +182,7 @@ export default function CommentSection({ slug }: { slug: string }) {
         )}
       </div>
 
+      {/* RENDER LIST KOMENTAR TETAP SAMA */}
       <div className="space-y-8">
         {comments.filter(c => !c.parent_id).map((mainComment) => (
           <div key={mainComment.id} className="comment-block group">
@@ -195,13 +196,14 @@ export default function CommentSection({ slug }: { slug: string }) {
                   </span>
                 </div>
                 <p className="text-slate-600 text-[15px] leading-relaxed mb-3">{mainComment.content}</p>
-                <button onClick={() => scrollToForm(mainComment)} className="text-[10px] font-black text-[#004a8e] hover:text-[#ffc107] uppercase tracking-widest px-3 py-1 border border-slate-100 rounded-lg transition-colors">Balas</button>
+                <button onClick={() => { setReplyTo(mainComment); formRef.current?.scrollIntoView({ behavior: 'smooth' }); }} className="text-[10px] font-black text-[#004a8e] hover:text-[#ffc107] uppercase tracking-widest px-3 py-1 border border-slate-100 rounded-lg">Balas</button>
               </div>
             </div>
 
+            {/* Replies */}
             <div className="ml-10 md:ml-16 mt-4 space-y-4">
               {comments.filter(reply => reply.parent_id === mainComment.id).map(reply => (
-                <div key={reply.id} className="flex gap-3 p-4 bg-slate-50 rounded-2xl border-l-4 border-[#ffc107] animate-in fade-in slide-in-from-left-2">
+                <div key={reply.id} className="flex gap-3 p-4 bg-slate-50 rounded-2xl border-l-4 border-[#ffc107]">
                   <Avatar name={reply.name} url={reply.avatar_url} size="sm" />
                   <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
@@ -217,9 +219,6 @@ export default function CommentSection({ slug }: { slug: string }) {
             </div>
           </div>
         ))}
-        {comments.length === 0 && (
-          <p className="text-center text-slate-400 py-10 italic text-sm">Belum ada diskusi. Mari mulai obrolan!</p>
-        )}
       </div>
     </section>
   )
