@@ -2,27 +2,40 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-// 1. IMPOR IMAGE UNTUK OPTIMASI FOTO PIMPINAN
 import Image from 'next/image'
 
 export default function BentoDashboard({ data }: { data: any }) {
-  const { latestPost, installCount, leader, profile, rantingCount, masjidCount } = data
+  // 1. Definisikan data dengan fallback agar tidak crash jika data kosong
+  const latestPost = data?.latestPost
+  const installCount = data?.installCount || 0
+  const leader = data?.leader
+  const profile = data?.profile
+  const rantingCount = data?.rantingCount || 0
+  const masjidCount = data?.masjidCount || 0
 
-  const isDownload = latestPost?.category === 'unduhan'
-  const downloadUrl = latestPost?.fileUrl || latestPost?.downloadLink
-  const buttonLink = isDownload ? downloadUrl : `/${latestPost?.category?.toLowerCase() || 'berita'}/${latestPost?.slug || ''}`
+  // 2. FIX SLUG: Pastikan mengambil .current jika slug berupa objek
+  const postSlug = typeof latestPost?.slug === 'string' 
+    ? latestPost.slug 
+    : latestPost?.slug?.current || '';
+
+  const category = latestPost?.category?.toLowerCase() || 'berita';
+  const isDownload = category === 'unduhan';
+  const downloadUrl = latestPost?.fileUrl || latestPost?.downloadLink || '#';
+
+  // 3. FIX LINK: Buat URL yang bersih
+  const buttonLink = isDownload ? downloadUrl : `/${category}/${postSlug}`;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 max-w-7xl mx-auto bento-container">
       
-      {/* 1. KARTU UTAMA: POSTINGAN TERBARU */}
+      {/* 1. KARTU UTAMA: POSTINGAN TERBARU (GANTI <a> JADI <Link>) */}
       <motion.div 
         whileHover={{ y: -5 }}
         className="md:col-span-2 md:row-span-2 bg-[#004a8e] text-white p-8 rounded-3xl flex flex-col justify-between shadow-xl relative overflow-hidden"
       >
         <div className="relative z-10">
           <div className={`badge ${isDownload ? 'bg-green-500' : 'bg-[#ffc107] text-[#004a8e]'}`}>
-            {latestPost?.category ? `${latestPost.category} TERBARU` : 'KONTEN TERBARU'}
+            {latestPost?.category ? `${latestPost.category.toUpperCase()} TERBARU` : 'KONTEN TERBARU'}
           </div>
 
           <h2 className="text-2xl md:text-3xl font-extrabold leading-tight mb-6 mt-4">
@@ -37,15 +50,15 @@ export default function BentoDashboard({ data }: { data: any }) {
         </div>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-          <a 
+          {/* GUNAKAN LINK AGAR LEBIH CEPAT DAN TIDAK RELOAD */}
+          <Link 
             href={buttonLink}
             target={isDownload ? "_blank" : "_self"}
-            rel={isDownload ? "noopener noreferrer" : ""}
             className="relative z-10 mt-8 inline-flex items-center gap-3 bg-[#ffc107] text-[#004a8e] font-black px-8 py-4 rounded-2xl w-fit hover:bg-white transition-all shadow-lg text-sm uppercase tracking-wider"
           >
             {isDownload ? "Unduh File" : "Baca Selengkapnya"}
             <span className="text-lg">➔</span>
-          </a>
+          </Link>
         </motion.div>
         <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl"></div>
       </motion.div>
@@ -60,7 +73,7 @@ export default function BentoDashboard({ data }: { data: any }) {
             Jamaah Terhubung
           </span>
           <h3 className="text-5xl md:text-6xl font-black text-[#004a8e]" suppressHydrationWarning>
-            {installCount || 0}
+            {installCount}
           </h3>
         </div>
         <div className="text-right">
@@ -83,20 +96,19 @@ export default function BentoDashboard({ data }: { data: any }) {
           <div>
             <span className="text-[10px] font-black text-[#004a8e] uppercase block mb-1">Ketua PCM</span>
             <h4 className="text-lg font-black text-[#004a8e] leading-tight max-w-[120px]">
-              {leader?.name || 'Pimpinan Cabang'}
+              {leader?.name || 'Ir. H. Sugiyatno, M.M.'}
             </h4>
           </div>
-          {/* FOTO PIMPINAN OPTIMIZED */}
           {leader?.photoUrl && (
             <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#004a8e] shadow-sm relative shrink-0">
-               <Image src={leader.photoUrl} alt={leader.name} fill sizes="64px" className="object-cover" />
+               <Image src={leader.photoUrl} alt={leader.name || 'Pimpinan'} fill sizes="64px" className="object-cover" />
             </div>
           )}
         </div>
 
         <div className="relative z-10 mt-4">
           <div className="inline-block bg-[#004a8e] text-white px-3 py-1.5 rounded-xl shadow-sm">
-            <span className="text-[10px] font-bold tracking-widest uppercase">NBM: {leader?.nbm || '-'}</span>
+            <span className="text-[10px] font-bold tracking-widest uppercase">NBM: {leader?.nbm || '1114297'}</span>
           </div>
         </div>
         <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-white opacity-20 rounded-full"></div>
@@ -109,7 +121,7 @@ export default function BentoDashboard({ data }: { data: any }) {
       >
         <span className="text-[10px] font-black text-[#004a8e] uppercase block mb-3">Sekretariat</span>
         <p className="text-sm font-bold text-slate-600 leading-relaxed mb-4">
-          {profile?.address || 'Kecamatan Kembaran, Banyumas'}
+          {profile?.address || 'Dukuhwaluh, Kembaran, Banyumas, Jawa Tengah'}
         </p>
         <Link href="/ranting" className="text-xs font-black text-[#004a8e] flex items-center gap-2 hover:gap-4 transition-all uppercase tracking-wider">
           📍 Peta Dakwah <span>➔</span>
