@@ -1,21 +1,23 @@
 import { client } from "@/lib/sanity.client"; 
 import { getAllPosts, getKhutbahPosts } from "@/lib/sanity.query";
-import nextDynamic from "next/dynamic"; 
+import dynamic from "next/dynamic"; // Gunakan nama standar 'dynamic'
 
-// Hapus { ssr: false } agar tidak error saat build
-const Headline = nextDynamic(() => import("@/components/Headline"));
-const TopNews = nextDynamic(() => import("@/components/TopNews"));
-const PopularSidebar = nextDynamic(() => import("@/components/PopularSidebar"));
-const RecommendationSection = nextDynamic(() => import("@/components/RecommendationSection"));
-const LatestPosts = nextDynamic(() => import("@/components/LatestPosts"));
-const KhutbahSidebar = nextDynamic(() => import("@/components/KhutbahSidebar"));
-const InfoDakwah = nextDynamic(() => import("@/components/InfoDakwah"));
-const LatestArticlesSidebar = nextDynamic(() => import("@/components/LatestArticlesSidebar"));
-const NotificationButton = nextDynamic(() => import("@/components/NotificationButton"));
-const BentoDashboard = nextDynamic(() => import("@/components/BentoDashboard")); 
+// Komponen standar (Server Components) - Import Normal lebih cepat & SEO Friendly
+import Headline from "@/components/Headline";
+import TopNews from "@/components/TopNews";
+import PopularSidebar from "@/components/PopularSidebar";
+import RecommendationSection from "@/components/RecommendationSection";
+import LatestPosts from "@/components/LatestPosts";
+import KhutbahSidebar from "@/components/KhutbahSidebar";
+import InfoDakwah from "@/components/InfoDakwah";
+import LatestArticlesSidebar from "@/components/LatestArticlesSidebar";
+import BentoDashboard from "@/components/BentoDashboard"; 
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0; 
+// Hanya gunakan dynamic untuk Client Components yang butuh 'window' atau 'document'
+const NotificationButton = dynamic(() => import("@/components/NotificationButton"), { ssr: false });
+const MissionaryMap = dynamic(() => import("@/components/MapWrapper"), { ssr: false }); // Jika ada peta
+
+export const revalidate = 60; // Update data tiap 60 detik (ISR)
 
 export default async function Home() {
   const bentoQuery = `{
@@ -33,6 +35,7 @@ export default async function Home() {
     "masjidCount": count(*[_type == "masjid"])
   }`;
 
+  // Eksekusi semua data sekaligus (Tactical Maneuver)
   const [allPosts, khutbahData, bentoData] = await Promise.all([
     getAllPosts(),
     getKhutbahPosts(),
@@ -40,23 +43,30 @@ export default async function Home() {
   ]);
 
   return (
-    <div className="page-wrapper" style={{ margin: '0 auto', maxWidth: '1200px', padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="page-wrapper" style={{ margin: '0 auto', maxWidth: '1200px', padding: '0 20px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      
       <div className="hide-on-mobile"><TopNews /></div>
+
       <div className="main-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '40px', marginTop: '25px' }}>
-        <div className="content-headline" style={{ minHeight: '300px' }}><Headline /></div>
+        <div className="content-headline"><Headline /></div>
         <div className="sidebar-popular hide-on-mobile"><PopularSidebar /></div>
       </div>
-      <section style={{ marginTop: '45px' }}><BentoDashboard data={bentoData} /></section>
-      <section className="hide-on-mobile" style={{ marginTop: '50px', paddingTop: '20px' }}>
+
+      <section style={{ marginTop: '45px' }}>
+        <BentoDashboard data={bentoData} />
+      </section>
+
+      <section className="hide-on-mobile" style={{ marginTop: '50px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '40px' }}>
           <div><RecommendationSection allData={allPosts || []} /></div>
           <aside><LatestArticlesSidebar /></aside>
         </div>
       </section>
-      <div className="bottom-layout-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '40px', marginTop: '50px', paddingBottom: '60px', flex: 1 }}>
+
+      <div className="bottom-layout-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '40px', marginTop: '50px', paddingBottom: '60px' }}>
         <div className="content-latest">
-          <h2 style={{ fontSize: '22px', color: '#004a8e', fontWeight: '900', marginBottom: '25px', textTransform: 'uppercase' }}>
-            Postingan <span style={{ color: '#ffc107' }}>Terbaru</span>
+          <h2 style={{ fontSize: '22px', color: '#004a8e', fontWeight: '900', marginBottom: '25px' }}>
+            POSTINGAN <span style={{ color: '#ffc107' }}>TERBARU</span>
           </h2>
           <LatestPosts />
         </div>
@@ -65,10 +75,19 @@ export default async function Home() {
           <InfoDakwah />
         </div>
       </div>
-      <div className="floating-notif-container" style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 2000, filter: 'drop-shadow(0 8px 20px rgba(0,74,142,0.4))' }}>
+
+      {/* Tombol Notifikasi (Client Side Only) */}
+      <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 2000 }}>
         <NotificationButton />
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `@media (max-width: 992px) { .hide-on-mobile { display: none !important; } .main-grid, .bottom-layout-grid { grid-template-columns: 1fr !important; gap: 30px !important; margin-top: 20px !important; } }`}} />
+
+      {/* Responsive Tactical CSS */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 992px) { 
+          .hide-on-mobile { display: none !important; } 
+          .main-grid, .bottom-layout-grid { grid-template-columns: 1fr !important; gap: 30px !important; } 
+        }
+      `}} />
     </div>
   );
 }

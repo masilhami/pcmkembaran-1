@@ -4,6 +4,7 @@ import "./globals.css";
 import LayoutWrapper from "@/components/LayoutWrapper";
 import InstallationTracker from "@/components/InstallationTracker"; 
 
+// 1. KONFIGURASI FONT (Mendukung bobot 400 hingga 800)
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   display: "swap",
@@ -11,22 +12,36 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+// 2. VIEWPORT: Optimal untuk Mobile & PWA
 export const viewport: Viewport = {
   themeColor: "#004a8e",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5, // Izinkan zoom untuk aksesibilitas
+  userScalable: true,
 };
 
+// 3. METADATA: Senjata Utama SEO & Social Media
 export const metadata: Metadata = {
   metadataBase: new URL('https://pcmkembaran.com'), 
   title: {
     default: "PCM Kembaran - Dakwah Berkemajuan, Mencerahkan Kehidupan",
     template: "%s | PCM Kembaran"
   },
-  description: "Portal resmi PCM Kembaran. Wadah edukasi, literasi Islam, dan informasi dakwah berkemajuan bagi umat di wilayah Kembaran dan sekitarnya.",
-  keywords: ["PCM Kembaran", "Muhammadiyah Kembaran", "Dakwah Berkemajuan", "Khutbah Jumat", "Banyumas"],
+  description: "Portal resmi Pimpinan Cabang Muhammadiyah Kembaran. Pusat edukasi, literasi Islam, khutbah Jumat, dan informasi dakwah berkemajuan di wilayah Banyumas.",
+  keywords: ["PCM Kembaran", "Muhammadiyah Kembaran", "Dakwah Berkemajuan", "Khutbah Jumat Banyumas", "Portal Islam Kembaran", "Banyumas"],
   manifest: "/manifest.json", 
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -43,66 +58,78 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "PCM Kembaran - Dakwah Berkemajuan, Mencerahkan Kehidupan",
+    title: "PCM Kembaran - Dakwah Berkemajuan",
+    description: "Portal resmi Pimpinan Cabang Muhammadiyah Kembaran.",
     images: ['/opengraph-image.jpg'], 
   },
-  // 1. UPDATE ICON: Agar Google & Browser mengenali favicon Anda
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" }, // File .ico standar
-      { url: "/icon.png", type: "image/png", sizes: "32x32" }, // Ikon PNG kecil
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
     ],
     apple: [
-      { url: "/apple-icon.png", sizes: "180x180" }, // Khusus iPhone/iPad
+      { url: "/apple-icon.png", sizes: "180x180" },
     ],
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   
-  // 2. DATA TERSTRUKTUR (JSON-LD): "Surat Cinta" buat Google
+  // 4. DATA TERSTRUKTUR (JSON-LD): Identitas Organisasi untuk Google Search
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "PCM Kembaran",
     "alternateName": "Pimpinan Cabang Muhammadiyah Kembaran",
+    "description": "Portal resmi dakwah dan informasi Pimpinan Cabang Muhammadiyah Kembaran, Banyumas.",
     "url": "https://pcmkembaran.com",
-    "logo": "https://pcmkembaran.com/icon.png", // Pastikan file ini ada di /public
+    "logo": "https://pcmkembaran.com/icon.png",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Kembaran",
+      "addressRegion": "Banyumas",
+      "addressCountry": "ID"
+    },
+    "sameAs": [
+      "https://www.instagram.com/pcmkembaran.bms/",
+      "https://www.youtube.com/@pcmkembaran"
+    ],
     "contactPoint": {
       "@type": "ContactPoint",
-      "telephone": "", 
+      "telephone": "+62-857-4102-5663", // Sony Martin - Kontak Resmi sesuai catatan
       "contactType": "customer service",
       "areaServed": "ID",
       "availableLanguage": "Indonesian"
-    },
-    "sameAs": [
-      "https://www.instagram.com/pcmkembaran.bms/", // Sesuaikan link medsos jika ada
-      "https://www.youtube.com/@pcmkembaran"
-    ],
-    "description": "Portal resmi PCM Kembaran. Pusat edukasi, literasi Islam, dan informasi dakwah berkemajuan."
+    }
   };
 
   return (
     <html lang="id" className={plusJakartaSans.variable}>
       <head>
-        {/* Menyisipkan JSON-LD ke dalam head secara aman */}
+        {/* Injeksi JSON-LD agar muncul di Rich Snippets Google */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
       <body 
-        className="antialiased" 
+        className={`${plusJakartaSans.className} antialiased`} 
         style={{ 
-          backgroundColor: '#fcfcfc',
-          color: '#1a1a1a',
+          backgroundColor: '#f8fafc', // Warna background bersih ala globals.css kita
+          color: '#0f172a',
           margin: 0,
-          fontFamily: 'var(--font-plus-jakarta), sans-serif'
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
         <LayoutWrapper>
-          {children}
+          <main style={{ flex: 1 }}>
+            {children}
+          </main>
         </LayoutWrapper>
+        
+        {/* Tracker Instalasi PWA (Diletakkan di akhir agar tidak menghalangi LCP) */}
         <InstallationTracker /> 
       </body>
     </html>
