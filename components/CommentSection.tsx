@@ -7,19 +7,21 @@ export default function CommentSection({ slug }: { slug: string }) {
   const [comments, setComments] = useState<any[]>([])
   const [isGuest, setIsGuest] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [replyTo, setReplyTo] = useState<any>(null) // Untuk melacak komentar yang sedang dibalas
+  const [replyTo, setReplyTo] = useState<any>(null)
   const [formData, setFormData] = useState({ name: '', email: '', website: '', content: '' })
   const [loading, setLoading] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
 
   const fetchComments = useCallback(async () => {
-    if (!supabase) return
-    const { data } = await supabase
+    if (!supabase || !slug) return
+    const { data, error } = await supabase
       .from('comments')
       .select('*')
       .eq('article_slug', slug)
-      .eq('is_approved', true) // Tetap filter yang disetujui (sekarang otomatis true)
-      .order('created_at', { ascending: true }) // Urutkan dari yang terlama agar percakapan nyambung
+      .eq('is_approved', true)
+      .order('created_at', { ascending: true })
+    
+    if (error) console.error("Gagal ambil komentar:", error.message)
     if (data) setComments(data)
   }, [slug])
 
@@ -37,16 +39,18 @@ export default function CommentSection({ slug }: { slug: string }) {
       if (event === 'SIGNED_IN' && session) {
         setUser(session.user)
         setIsGuest(false)
-        if (typeof window !== 'undefined') window.history.replaceState(null, '', window.location.pathname)
+        if (typeof window !== 'undefined') {
+           window.history.replaceState(null, '', window.location.pathname)
+        }
       }
       if (event === 'SIGNED_OUT') setUser(null)
     })
 
-    const channel = supabase.channel(`comments-${slug}`)
+    const channel = supabase.channel(`comments-realtime-${slug}`)
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'comments', filter: `article_slug=eq.${slug}` }, 
         (payload) => {
-          if (payload.new.is_approved) fetchComments() // Refresh list agar urutan tetap rapi
+          if (payload.new.is_approved) fetchComments()
         }
       ).subscribe()
 
@@ -66,36 +70,55 @@ export default function CommentSection({ slug }: { slug: string }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // 1. Cek slug: Kalau slug kosong, database pasti nolak
+    if (!slug) {
+      alert("Error: Slug artikel tidak ditemukan!")
+      return
+    }
+
     if (!formData.content.trim()) return
     
     setLoading(true)
+    
     const commentData = {
       article_slug: slug,
       content: formData.content,
       name: user ? (user.user_metadata?.full_name || user.email) : formData.name,
       email: user ? user.email : formData.email,
-      website_url: formData.website,
+      website_url: formData.website || null,
       user_id: user?.id || null,
       is_guest: !user,
-      is_approved: true, // LANGSUNG MUNCUL TANPA MODERASI
-      parent_id: replyTo ? replyTo.id : null // Masukkan ID orang yang dibalas
+      is_approved: true, 
+      parent_id: replyTo ? replyTo.id : null 
     }
 
-    const { error } = await supabase.from('comments').insert([commentData])
-    
-    if (!error) {
-      setFormData({ ...formData, content: '' })
-      setReplyTo(null)
-    } else {
-      alert('Gagal mengirim komentar.')
+    try {
+      // Tambahkan .select() agar kita dapet respon balik dari Supabase
+      const { data, error } = await supabase.from('comments').insert([commentData]).select()
+      
+      if (error) {
+        // TERIAK DISINI KALAU ERROR
+        console.error("Supabase Insert Error:", error)
+        alert(`Gagal Simpan! Pesan Error: ${error.message}\n\nKode Error: ${error.code}`)
+      } else {
+        console.log("Berhasil simpan data:", data)
+        setFormData({ ...formData, content: '' })
+        setReplyTo(null)
+        // Jalankan fetch manual sebagai cadangan jika realtime lambat
+        fetchComments()
+        alert("Komentar berhasil diposting!")
+      }
+    } catch (err: any) {
+      alert("System Error: " + err.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
-  // Fungsi untuk scroll ke form saat klik balas
   const scrollToForm = (comment: any) => {
     setReplyTo(comment)
-    setIsGuest(!user) // Jika tidak login, langsung buka form guest
+    if (!user) setIsGuest(true)
     formRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -111,80 +134,82 @@ export default function CommentSection({ slug }: { slug: string }) {
           <div className="flex flex-col items-center p-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
             <p className="text-slate-500 font-bold mb-5">Ingin ikut berdiskusi?</p>
             <div className="flex flex-wrap justify-center gap-4">
-              <button type="button" onClick={handleGoogleLogin} className="bg-white border-2 border-slate-100 p-3 px-6 rounded-xl shadow-sm font-black text-xs flex items-center gap-3 hover:bg-slate-100 transition-all">
+              <button type="button" onClick={handleGoogleLogin} className="bg-white border-2 border-slate-100 p-3 px-6 rounded-xl shadow-sm font-black text-xs flex items-center gap-3 hover:bg-slate-100 transition-all uppercase">
                 <img src="https://www.google.com/favicon.ico" width={16} alt="Google" /> MASUK GOOGLE
               </button>
-              <button type="button" onClick={() => setIsGuest(true)} className="p-3 px-6 text-xs font-black text-[#004a8e] bg-[#ffc107] rounded-xl hover:opacity-80 transition-all uppercase tracking-wider">KOMEN GUEST</button>
+              <button type="button" onClick={() => setIsGuest(true)} className="p-3 px-6 text-xs font-black text-[#004a8e] bg-[#ffc107] rounded-xl hover:opacity-80 transition-all uppercase tracking-wider">KOMEN TANPA LOGIN</button>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
             {replyTo && (
-              <div className="flex justify-between items-center p-3 bg-[#fff8e1] rounded-xl border border-[#ffc107] mb-2 animate-in fade-in slide-in-from-left-2">
+              <div className="flex justify-between items-center p-3 bg-[#fff8e1] rounded-xl border border-[#ffc107] mb-2">
                 <p className="text-xs font-bold text-[#854d0e]">Membalas: <span className="italic">{replyTo.name}</span></p>
-                <button onClick={() => setReplyTo(null)} className="text-[10px] font-black text-red-500 uppercase">Batal</button>
+                <button onClick={() => setReplyTo(null)} className="text-[10px] font-black text-red-500 uppercase">Batal Balas</button>
               </div>
             )}
             
             {user && (
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl mb-2">
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl mb-2 border border-blue-100">
                 <img src={user.user_metadata?.avatar_url || user.user_metadata?.picture} className="w-6 h-6 rounded-full" alt="avatar" />
-                <p className="text-xs font-bold text-[#004a8e]">Login: {user.user_metadata?.full_name}</p>
+                <p className="text-xs font-black text-[#004a8e]">Anda Login sebagai: {user.user_metadata?.full_name}</p>
               </div>
             )}
 
             {!user && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input required placeholder="Nama Anda*" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required type="email" placeholder="Email*" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input required placeholder="Nama Anda*" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#ffc107] transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input required type="email" placeholder="Email (Rahasia)*" className="p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#ffc107] transition-all" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
             )}
 
-            <textarea required value={formData.content} placeholder="Tuliskan tanggapan Anda..." className="w-full p-5 h-32 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none" onChange={e => setFormData({...formData, content: e.target.value})} />
+            <textarea required value={formData.content} placeholder="Tuliskan tanggapan cerdas Anda..." className="w-full p-5 h-32 bg-slate-50 rounded-2xl border-none ring-1 ring-slate-200 outline-none focus:ring-2 focus:ring-[#004a8e] transition-all" onChange={e => setFormData({...formData, content: e.target.value})} />
             
             <div className="flex justify-end gap-3">
-              <button disabled={loading} className="bg-[#004a8e] text-white px-10 py-4 rounded-xl font-black uppercase text-xs hover:bg-[#ffc107] hover:text-[#004a8e] transition-all shadow-lg">
-                {loading ? 'Mengirim...' : replyTo ? 'Kirim Balasan ➔' : 'Kirim Komentar ➔'}
+              <button disabled={loading} className="bg-[#004a8e] text-white px-10 py-4 rounded-xl font-black uppercase text-xs hover:bg-[#ffc107] hover:text-[#004a8e] transition-all shadow-lg disabled:opacity-50">
+                {loading ? 'Sabar, sedang mengirim...' : replyTo ? 'Kirim Balasan ➔' : 'Kirim Komentar ➔'}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* RENDER KOMENTAR */}
       <div className="space-y-6">
         {comments.filter(c => !c.parent_id).map((mainComment) => (
           <div key={mainComment.id} className="comment-block">
-            {/* Komentar Utama */}
-            <div className="flex gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-all border-b border-slate-50">
-              <div className="w-10 h-10 rounded-xl bg-[#ffc107] flex items-center justify-center font-black text-[#004a8e] shrink-0 uppercase">{mainComment.name.charAt(0)}</div>
+            <div className="flex gap-4 p-5 rounded-3xl hover:bg-slate-50 transition-all border-b border-slate-50">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ffc107] to-[#ffd54f] flex items-center justify-center font-black text-[#004a8e] shrink-0 uppercase shadow-sm">
+                {mainComment.name ? mainComment.name.charAt(0) : '?'}
+              </div>
               <div className="flex-1">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-black text-sm text-[#004a8e]">{mainComment.name}</span>
-                  <span className="text-[10px] text-slate-300 italic">{new Date(mainComment.created_at).toLocaleDateString('id-ID')}</span>
+                  <span className="text-[10px] font-bold text-slate-300 italic">{new Date(mainComment.created_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</span>
                 </div>
-                <p className="text-slate-600 text-[15px] mb-3">{mainComment.content}</p>
-                <button onClick={() => scrollToForm(mainComment)} className="text-[10px] font-black text-[#004a8e] hover:text-[#ffc107] uppercase tracking-widest">Balas</button>
+                <p className="text-slate-600 text-[15px] leading-relaxed mb-3">{mainComment.content}</p>
+                <button onClick={() => scrollToForm(mainComment)} className="text-[10px] font-black text-[#004a8e] hover:text-[#ffc107] uppercase tracking-widest border border-slate-100 px-3 py-1 rounded-lg">Balas</button>
               </div>
             </div>
 
-            {/* Balasan (Replies) */}
             <div className="ml-14 mt-4 space-y-4">
               {comments.filter(reply => reply.parent_id === mainComment.id).map(reply => (
-                <div key={reply.id} className="flex gap-3 p-3 bg-slate-50 rounded-2xl border-l-4 border-[#ffc107]">
-                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center font-black text-[#004a8e] text-xs shrink-0 uppercase">{reply.name.charAt(0)}</div>
+                <div key={reply.id} className="flex gap-3 p-4 bg-slate-50 rounded-2xl border-l-4 border-[#ffc107] animate-in fade-in slide-in-from-left-2">
+                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center font-black text-[#004a8e] text-xs shrink-0 uppercase shadow-xs">
+                    {reply.name ? reply.name.charAt(0) : '?'}
+                  </div>
                   <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-bold text-xs text-[#004a8e]">{reply.name}</span>
-                      <span className="text-[9px] text-slate-300">{new Date(reply.created_at).toLocaleDateString('id-ID')}</span>
+                      <span className="text-[9px] font-bold text-slate-300">{new Date(reply.created_at).toLocaleDateString('id-ID')}</span>
                     </div>
-                    <p className="text-slate-500 text-sm">{reply.content}</p>
+                    <p className="text-slate-500 text-sm leading-relaxed">{reply.content}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         ))}
+        {comments.length === 0 && <p className="text-center text-slate-400 py-10 italic">Belum ada diskusi. Ayo mulai obrolan!</p>}
       </div>
     </section>
   )
