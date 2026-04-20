@@ -93,7 +93,7 @@ export async function getSinglePost(slug: string) {
 }
 
 /**
- * 6. Ambil Naskah Khutbah Terbaru (Fix Build Error)
+ * 6. Ambil Naskah Khutbah Terbaru
  */
 export async function getKhutbahPosts() {
   return client.fetch(
@@ -110,24 +110,26 @@ export async function getKhutbahPosts() {
 }
 
 /**
- * 7. Postingan Terkait (Bawah Artikel)
- * Memastikan slug dikirim sebagai string agar link tidak undefined
+ * 7. Postingan Terkait & Terpopuler (Sidebar & Bawah Artikel)
+ * FIX: Limit ditambah ke 8 agar bisa ditampilkan 5 di sidebar
  */
 export async function getRelatedPosts(category: string, currentSlug: string) {
   return client.fetch(
-    groq`*[_type == "post" && (categories[0]->title match $category || category match $category) && slug.current != $currentSlug] | order(publishedAt desc) [0...3] {
+    groq`*[_type == "post" && (categories[0]->title match $category || category match $category) && slug.current != $currentSlug] | order(publishedAt desc) [0...8] {
       _id,
       title,
       "slug": slug.current,
       "image": mainImage.asset->url,
-      "category": coalesce(categories[0]->title, category, $category)
+      "publishedAt": publishedAt,
+      "category": coalesce(categories[0]->title, category, $category),
+      "views": coalesce(views, 0)
     }`,
     { category, currentSlug }
   );
 }
 
 /**
- * 8. Postingan Terpopuler (Sidebar Rank)
+ * 8. Postingan Terpopuler Global (Sidebar Rank)
  */
 export async function getPopularPosts() {
   return client.fetch(
@@ -135,6 +137,7 @@ export async function getPopularPosts() {
       _id,
       title,
       "slug": slug.current,
+      "publishedAt": publishedAt,
       "category": coalesce(categories[0]->title, category, "Berita"),
       "views": coalesce(views, 0)
     }`
