@@ -1,12 +1,11 @@
 import { getSinglePost, getRelatedPosts } from "@/lib/sanity.query"; 
 import { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image"; // Optimasi LCP
+import Image from "next/image";
 import ViewCounter from "@/components/ViewCounter"; 
 import ShareButtons from "@/components/ShareButtons";
 import PortableTextContent from "@/components/PortableTextContent";
 
-// 1. GENERATE METADATA DINAMIS (Surat Cinta untuk Sosmed & Google)
 export async function generateMetadata({ 
   params 
 }: { 
@@ -14,60 +13,34 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { category, slug } = await params;
   const post = await getSinglePost(slug);
-
-  if (!post) {
-    return { title: "Berita Tidak Ditemukan | PCM Kembaran" };
-  }
+  if (!post) return { title: "Berita Tidak Ditemukan" };
 
   const url = `https://pcmkembaran.com/${category}/${slug}`;
-  const description = post.excerpt || "Baca informasi terbaru dan dakwah berkemajuan dari PCM Kembaran.";
-
   return {
     title: post.title,
-    description: description,
-    alternates: { canonical: url },
+    description: post.excerpt || "Baca informasi terbaru dari PCM Kembaran",
     openGraph: {
       title: post.title,
-      description: description,
+      description: post.excerpt,
       url: url,
-      siteName: "PCM Kembaran",
-      // Gambar dinamis: Kalau ada gambar berita, pakai itu. Kalau tidak, pakai logo.
-      images: [
-        { 
-          url: post.image || "/opengraph-image.jpg", 
-          width: 1200, 
-          height: 630,
-          alt: post.title 
-        }
-      ],
-      locale: "id_ID",
+      images: [{ url: post.image || "/opengraph-image.jpg" }],
       type: "article",
-      publishedTime: post.publishedAt,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: post.title,
-      description: description,
-      images: [post.image || "/opengraph-image.jpg"],
     },
   };
 }
 
-// 2. KOMPONEN UTAMA
 export default async function PostDetail({ 
   params 
 }: { 
   params: Promise<{ category: string, slug: string }> 
 }) {
   const { category, slug } = await params;
-  
   const [post, relatedPosts] = await Promise.all([ 
     getSinglePost(slug), 
     getRelatedPosts(category, slug) 
   ]);
 
-  if (!post) return <div style={{ padding: '100px', textAlign: 'center' }}>Artikel tidak ditemukan.</div>;
-  
+  if (!post) return <div className="py-20 text-center font-bold">Artikel tidak ditemukan.</div>;
   const shareUrl = `https://pcmkembaran.com/${category}/${slug}`;
 
   return (
@@ -75,15 +48,15 @@ export default async function PostDetail({
       <ViewCounter slug={slug} />
       
       <nav className="breadcrumb">
-        <Link href="/">Home</Link> <span className="mx-2">/</span>
+        <Link href="/">Home</Link> <span>/</span>
         <Link href={`/${category}`} className="breadcrumb-cat">{category}</Link>
-        <span className="mx-2">/</span>
+        <span>/</span>
         <span className="breadcrumb-title">{post.title}</span>
       </nav>
 
       <div className="main-grid-layout">
         {/* ================= SISI KIRI: ARTIKEL ================= */}
-        <article>
+        <article className="article-container">
           <header className="article-header">
             <h1 className="main-title">{post.title}</h1>
             <div className="meta-bar">
@@ -102,17 +75,9 @@ export default async function PostDetail({
             </div>
           </header>
 
-          {/* GAMBAR UTAMA DENGAN PRIORITY UNTUK LCP */}
           {post.image && (
             <div className="featured-img-container">
-              <Image 
-                src={post.image} 
-                alt={post.title} 
-                fill 
-                priority 
-                sizes="(max-width: 1200px) 100vw, 800px"
-                style={{ objectFit: 'cover' }}
-              />
+              <Image src={post.image} alt={post.title} fill priority sizes="(max-width: 1200px) 100vw, 800px" style={{ objectFit: 'cover' }} />
             </div>
           )}
 
@@ -120,14 +85,14 @@ export default async function PostDetail({
             {post.body && <PortableTextContent value={post.body} />}
           </div>
 
-          {/* POSTINGAN TERKAIT */}
+          {/* POSTINGAN TERKAIT (DI BAWAH ARTIKEL) */}
           {relatedPosts?.length > 0 && (
-            <section className="related-box">
-              <h3 className="related-title">Postingan Terkait</h3>
+            <section className="related-section">
+              <h3 className="section-title">Postingan Terkait</h3>
               <div className="related-grid">
                 {relatedPosts.slice(0, 3).map((rel: any) => (
-                  <Link href={`/${category}/${rel.slug}`} key={rel._id} className="related-item">
-                    <div className="thumb">
+                  <Link href={`/${category}/${rel.slug}`} key={rel._id} className="related-card">
+                    <div className="related-thumb">
                       <Image src={rel.image || "/logo-md.png"} alt={rel.title} fill sizes="300px" style={{ objectFit: 'cover' }} />
                     </div>
                     <h4>{rel.title}</h4>
@@ -138,48 +103,115 @@ export default async function PostDetail({
           )}
         </article>
 
-        {/* ================= SISI KANAN: SIDEBAR ================= */}
+        {/* ================= SISI KANAN: SIDEBAR (FIXED MESSY) ================= */}
         <aside className="sidebar">
-          <div className="sidebar-widget">
-            <h3 className="widget-title gold">IKUTI KAMI</h3>
-            <div className="social-grid">
-              {/* SVG Ikon tetap sama ... */}
+          <div className="sticky-sidebar">
+            
+            {/* WIDGET 1: SOSIAL MEDIA */}
+            <div className="sidebar-widget">
+              <h3 className="widget-title gold">IKUTI KAMI</h3>
+              <div className="social-flex">
+                <a href="https://facebook.com/pcmkembaran" target="_blank" className="social-btn fb">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </a>
+                <a href="https://instagram.com/pcmkembaran" target="_blank" className="social-btn ig">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                </a>
+                <a href="https://wa.me/6281234567890" target="_blank" className="social-btn wa">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                </a>
+              </div>
             </div>
-          </div>
 
-          <div className="sidebar-widget">
-            <h3 className="widget-title blue">TERPOPULER</h3>
-            <div className="popular-list">
-              {relatedPosts?.slice(0, 5).map((pop: any, idx: number) => (
-                <Link href={`/${category}/${pop.slug}`} key={pop._id} className="pop-item">
-                  <span className="pop-rank">{idx + 1}</span>
-                  <p className="pop-text">{pop.title}</p>
-                </Link>
-              ))}
+            {/* WIDGET 2: TERPOPULER */}
+            <div className="sidebar-widget">
+              <h3 className="widget-title blue">TERPOPULER</h3>
+              <div className="popular-wrapper">
+                {relatedPosts?.slice(0, 5).map((pop: any, idx: number) => (
+                  <Link href={`/${category}/${pop.slug}`} key={pop._id} className="pop-card">
+                    <div className="pop-number">0{idx + 1}</div>
+                    <div className="pop-info">
+                      <p className="pop-title-text">{pop.title}</p>
+                      <span className="pop-date">
+                        {new Date(pop.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
+
           </div>
         </aside>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        :root { --abah-blue: #004a8e; --abah-gold: #ffc107; }
-        .post-detail-main { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
-        .breadcrumb { font-size: 13px; color: #888; margin-bottom: 25px; }
-        .breadcrumb-cat { color: var(--abah-blue); font-weight: bold; text-decoration: none; }
-        .main-grid-layout { display: grid; grid-template-columns: 1fr 340px; gap: 40px; }
-        .main-title { font-size: clamp(24px, 5vw, 40px); font-weight: 900; line-height: 1.2; color: #111; margin-bottom: 20px; }
-        .meta-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
-        .author-box { display: flex; align-items: center; gap: 12px; }
-        .author-img { border-radius: 50%; border: 1px solid #eee; }
-        .featured-img-container { position: relative; width: 100%; height: 450px; border-radius: 20px; overflow: hidden; margin-bottom: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .article-content { font-size: 18px; line-height: 1.8; color: #333; }
-        .related-box { margin-top: 60px; border-top: 4px solid var(--abah-blue); padding-top: 30px; }
-        .related-title { font-size: 26px; font-weight: 900; margin-bottom: 25px; }
-        .related-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .thumb { position: relative; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
-        .pop-rank { font-size: 32px; font-weight: 900; color: #f1f5f9; line-height: 1; }
-        @media (max-width: 992px) { .main-grid-layout { grid-template-columns: 1fr; } }
-        @media (max-width: 600px) { .featured-img-container { height: 250px; } }
+        :root { --abah-blue: #004a8e; --abah-gold: #ffc107; --text-main: #1e293b; --border: #e2e8f0; }
+        .post-detail-main { max-width: 1200px; margin: 40px auto; padding: 0 20px; font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        .breadcrumb { font-size: 13px; color: #64748b; margin-bottom: 30px; display: flex; align-items: center; gap: 8px; }
+        .breadcrumb-cat { color: var(--abah-blue); font-weight: 800; text-transform: uppercase; text-decoration: none; }
+        .breadcrumb-title { color: #94a3b8; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+        .main-grid-layout { display: grid; grid-template-columns: 1fr 340px; gap: 50px; align-items: flex-start; }
+        
+        /* ARTIKEL SECTION */
+        .article-container { min-width: 0; }
+        .main-title { font-size: clamp(26px, 4vw, 42px); font-weight: 900; line-height: 1.2; color: #0f172a; margin-bottom: 25px; }
+        .meta-bar { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 20px 0; margin-bottom: 35px; }
+        .author-box { display: flex; align-items: center; gap: 14px; }
+        .author-img { border-radius: 50%; border: 2px solid var(--border); }
+        .name { font-weight: 800; font-size: 15px; color: #1e293b; }
+        .meta-sub { font-size: 12px; color: #64748b; margin-top: 2px; font-weight: 500; }
+        .views { color: var(--abah-blue); font-weight: 700; }
+
+        .featured-img-container { position: relative; width: 100%; height: 480px; border-radius: 24px; overflow: hidden; margin-bottom: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+        .article-content { font-size: 19px; line-height: 1.85; color: #334155; }
+
+        /* SIDEBAR SECTION (THE FIX) */
+        .sidebar { position: relative; }
+        .sticky-sidebar { position: sticky; top: 100px; display: flex; flex-direction: column; gap: 35px; }
+        
+        .sidebar-widget { background: #fff; border-radius: 20px; border: 1px solid var(--border); overflow: hidden; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .widget-title { font-size: 15px; font-weight: 900; margin-bottom: 20px; padding-left: 12px; letter-spacing: 1px; }
+        .widget-title.gold { border-left: 5px solid var(--abah-gold); color: #854d0e; }
+        .widget-title.blue { border-left: 5px solid var(--abah-blue); color: var(--abah-blue); }
+
+        .social-flex { display: flex; gap: 12px; }
+        .social-btn { width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: 0.3s; color: #fff; }
+        .social-btn.fb { background: #1877f2; }
+        .social-btn.ig { background: #e4405f; }
+        .social-btn.wa { background: #25d366; }
+        .social-btn:hover { transform: translateY(-5px); filter: brightness(1.1); }
+
+        .popular-wrapper { display: flex; flex-direction: column; gap: 20px; }
+        .pop-card { display: flex; gap: 16px; text-decoration: none; align-items: flex-start; group; }
+        .pop-number { font-size: 32px; font-weight: 900; color: #f1f5f9; line-height: 1; transition: 0.3s; }
+        .pop-card:hover .pop-number { color: var(--abah-gold); }
+        .pop-info { display: flex; flex-direction: column; gap: 4px; }
+        .pop-title-text { font-size: 14px; font-weight: 700; line-height: 1.4; color: var(--text-main); transition: 0.2s; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .pop-card:hover .pop-title-text { color: var(--abah-blue); }
+        .pop-date { font-size: 11px; color: #94a3b8; font-weight: 600; }
+
+        /* RELATED SECTION */
+        .related-section { margin-top: 60px; padding-top: 40px; border-top: 4px solid var(--abah-blue); }
+        .section-title { font-size: 24px; font-weight: 900; color: #0f172a; margin-bottom: 25px; }
+        .related-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; }
+        .related-card { text-decoration: none; color: inherit; group; }
+        .related-thumb { position: relative; aspect-ratio: 16/9; border-radius: 15px; overflow: hidden; margin-bottom: 12px; background: #f1f5f9; }
+        .related-card h4 { font-size: 15px; font-weight: 800; line-height: 1.4; color: #1e293b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; transition: 0.2s; }
+        .related-card:hover h4 { color: var(--abah-blue); }
+
+        @media (max-width: 992px) { 
+          .main-grid-layout { grid-template-columns: 1fr; gap: 40px; }
+          .sticky-sidebar { position: static; }
+          .featured-img-container { height: 350px; }
+        }
+        @media (max-width: 600px) { 
+          .related-grid { grid-template-columns: 1fr; }
+          .featured-img-container { height: 220px; }
+          .main-title { font-size: 26px; }
+        }
       `}} />
     </main>
   );
