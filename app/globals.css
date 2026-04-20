@@ -2,124 +2,246 @@
 @import "tailwindcss";
 
 @theme {
+  /* Branding Colors */
   --color-pcm-blue: #004a8e;
   --color-pcm-gold: #ffc107;
+  --color-pcm-red: #ff4d4f;
+  
+  /* Layout Tokens */
   --radius-bento: 2.5rem;
+  --radius-tactical: 1.25rem;
+  
+  /* Shadows */
+  --shadow-tactical: 0 0 25px rgba(56, 189, 248, 0.4);
   --shadow-card: 0 10px 30px rgba(0, 74, 142, 0.05);
 }
 
-/* ================= CSS VARIABLES & BASE ================= */
+/* ================= BASE STYLES ================= */
 @layer base {
   :root {
-    --abah-blue: #004a8e;     /* Biru Resmi PCM */
-    --abah-gold: #ffc107;     /* Kuning PCM */
-    --bg-gray: #fcfcfc;       
-    --text-dark: #1a1a1a;
-    --border-light: #eeeeee;
-    --bento-radius: 2.5rem;
+    --abah-blue: #004a8e;
+    --abah-gold: #ffc107;
+    --abah-red: #ff4d4f;
+    --bg-gray: #f8fafc;
+    --text-dark: #0f172a;
   }
 
   * {
     margin: 0;
     padding: 0;
-    box-sizing: border-box !important;
+    box-sizing: border-box;
   }
 
   body {
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-gray);
     color: var(--text-dark);
-    line-height: 1.7; 
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Reset link global agar tidak otomatis hitam */
   a {
     color: inherit;
     text-decoration: none;
+    transition: all 0.2s ease-in-out;
   }
 }
 
-/* ================= UTILITIES & COMPONENTS ================= */
+/* ================= COMPONENTS & UTILITIES ================= */
 @layer components {
 
-  /* --- PERBAIKAN MENUBAR (Navigasi Utama) --- */
-  .main-nav { 
-    background: var(--abah-blue) !important; 
-    border-bottom: 5px solid var(--abah-gold); 
+  /* --- NAVIGATION (Lapis 3) --- */
+  .main-nav {
+    background: var(--abah-blue) !important;
+    border-bottom: 4px solid var(--abah-gold);
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   }
 
-  /* Paksa semua link di dalam nav menjadi putih */
-  .main-nav a, .nav-anchor { 
-    display: flex; 
-    align-items: center; 
-    height: 55px; 
-    padding: 0 25px; 
-    color: #ffffff !important; /* WAJIB PUTIH */
-    font-weight: 800; 
-    font-size: 13px; 
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.3s ease;
-  }
-
-  .nav-anchor:hover, .nav-anchor.active { 
-    background: var(--abah-gold) !important; 
-    color: var(--abah-blue) !important; /* Teks jadi biru saat hover di latar kuning */
-  }
-
-  /* --- PERBAIKAN TOMBOL INDEKS & DONASI --- */
-  .btn-blue-pill, .btn-indeks {
-    background: var(--abah-blue) !important;
-    color: #ffffff !important; /* Paksa teks putih */
-    padding: 10px 24px;
-    border-radius: 30px;
-    font-weight: 800;
-    text-transform: uppercase;
-    display: inline-flex;
+  .nav-link-item {
+    display: flex;
     align-items: center;
-    gap: 10px;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 74, 142, 0.2);
-    transition: all 0.3s ease;
-    font-size: 13px;
+    height: 50px;
+    padding: 0 20px;
+    color: #ffffff !important;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .btn-blue-pill:hover, .btn-indeks:hover {
+  .nav-link-item:hover, .nav-link-item.active {
     background: var(--abah-gold) !important;
     color: var(--abah-blue) !important;
   }
 
-  /* --- BENTO GRID STYLING --- */
+  /* --- AUTH BUTTONS (Header) --- */
+  .auth-btn-masuk {
+    background: var(--abah-gold) !important;
+    color: #000 !important;
+    font-weight: 900;
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-size: 11px;
+    box-shadow: 0 4px 10px rgba(255, 193, 7, 0.2);
+  }
+
+  .auth-btn-keluar {
+    background: var(--abah-red) !important;
+    color: #ffffff !important;
+    font-weight: 900;
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-size: 11px;
+    box-shadow: 0 4px 10px rgba(255, 77, 79, 0.2);
+  }
+
+  /* --- TACTICAL MISSIONARY MAP (Military Command Center) --- */
+  .tactical-map-container {
+    position: relative;
+    border: 2px solid #334155;
+    background: #020617;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 1);
+  }
+
+  /* Grid Overlay ala HUD Militer */
+  .tactical-grid {
+    background-image: 
+      linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: 400;
+    pointer-events: none;
+  }
+
+  /* Efek Neon Glow untuk Garis Batas Wilayah */
+  .tactical-glow {
+    filter: drop-shadow(0 0 8px #38bdf8);
+  }
+
+  /* HUD Scanlines High-Detail (Double Layer) */
+  .tactical-map-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 1px,
+      rgba(56, 189, 248, 0.03) 2px,
+      rgba(56, 189, 248, 0.03) 3px
+    );
+    pointer-events: none;
+    z-index: 1002;
+  }
+
+  .tactical-map-container::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* --- LEAFLET TACTICAL TOOLTIP (DIBESARKAN & DIPERTARJAM) --- */
+  .leaflet-tooltip-tactical {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 2px solid #38bdf8 !important;
+    color: #38bdf8 !important;
+    font-family: 'monospace' !important;
+    font-weight: 900 !important;
+    font-size: 13px !important; /* DIBESARKAN */
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+    padding: 5px 12px !important;
+    border-radius: 6px !important;
+    white-space: nowrap;
+  }
+
+  /* Perbaikan Panah Tooltip */
+  .leaflet-tooltip-top:before, 
+  .leaflet-tooltip-bottom:before, 
+  .leaflet-tooltip-left:before, 
+  .leaflet-tooltip-right:before {
+    border-top-color: #38bdf8 !important;
+    border-bottom-color: #38bdf8 !important;
+    border-left-color: #38bdf8 !important;
+    border-right-color: #38bdf8 !important;
+  }
+
+  /* --- HUD TEXT (DIBESARKAN) --- */
+  .tactical-hud-text {
+    font-size: 14px !important;
+    line-height: 1.8;
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+    font-family: 'monospace';
+  }
+
+  /* --- ANIMATIONS --- */
+  @keyframes radar-pulse {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  @keyframes ping-signal {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  .radar-pulse-ring {
+    animation: radar-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  }
+
+  .ping-signal {
+    background: var(--abah-gold);
+    border-radius: 50%;
+    animation: ping-signal 1.5s ease-out infinite;
+    position: absolute;
+  }
+
+  /* --- BENTO CARD STYLING --- */
   .bento-card {
     background: #ffffff;
-    border-radius: var(--bento-radius);
-    padding: 2rem;
+    border-radius: var(--radius-bento);
+    padding: 2.5rem;
     box-shadow: var(--shadow-card);
-    transition: all 0.4s ease;
+    border: 1px solid rgba(0, 74, 142, 0.05);
+    transition: transform 0.3s ease;
+  }
+  
+  .bento-card:hover {
+    transform: translateY(-5px);
   }
 
-  /* LOGO SECTION ANTI-SILAU */
-  .main-logo-title { 
-    font-size: 42px; 
-    font-weight: 900; 
-    color: var(--abah-blue); 
+  /* --- LOGO TEXT EFFECTS --- */
+  .main-logo-title {
+    font-size: 36px;
+    font-weight: 950;
+    color: var(--abah-blue);
     font-style: italic;
-    letter-spacing: -2px;
+    letter-spacing: -1.5px;
+    line-height: 1;
   }
 
-  .main-logo-title span.yellow { 
-    color: var(--abah-gold) !important; 
-    -webkit-text-stroke: 1.2px var(--abah-blue); 
+  .main-logo-title span.gold-stroke {
+    color: var(--abah-gold);
+    -webkit-text-stroke: 1px var(--abah-blue);
+    paint-order: stroke fill;
   }
 }
 
-/* ================= RESPONSIVE ================= */
-@media (max-width: 992px) {
-  .main-logo-title { font-size: 30px; }
-  .nav-anchor { padding: 0 15px; font-size: 11px; }
+/* ================= RESPONSIVE ADJUSTMENTS ================= */
+@media (max-width: 768px) {
+  .main-logo-title { font-size: 26px; letter-spacing: -1px; }
+  .nav-link-item { padding: 0 12px; font-size: 10px; }
+  .bento-card { padding: 1.5rem; border-radius: 1.5rem; }
+  .tactical-grid { background-size: 20px 20px; }
+  .leaflet-tooltip-tactical { font-size: 11px !important; padding: 3px 8px !important; }
 }
