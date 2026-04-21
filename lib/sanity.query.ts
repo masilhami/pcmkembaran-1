@@ -12,18 +12,18 @@ export async function getAllPosts() {
       "slug": slug.current,
       "image": mainImage.asset->url,
       "publishedAt": publishedAt,
-      "category": coalesce(categories[0]->title, category, "Umum"),
+      "category": coalesce(category, categories[0]->title, "Umum"),
       "views": coalesce(views, 0)
     }`
   );
 }
 
 /**
- * 2. Ambil Berita Terbaru (Headline & Top News)
+ * 2. Ambil Berita Terbaru
  */
 export async function getNewsPosts() {
   return client.fetch(
-    groq`*[_type == "post" && (categories[0]->title match "Berita" || category match "berita")] | order(publishedAt desc)[0...6] {
+    groq`*[_type == "post" && (category match "berita" || categories[0]->title match "Berita")] | order(publishedAt desc)[0...6] {
       _id,
       title,
       "slug": slug.current,
@@ -36,11 +36,11 @@ export async function getNewsPosts() {
 }
 
 /**
- * 3. Ambil Artikel Terbaru (Sidebar Pilihan)
+ * 3. Ambil Artikel Terbaru
  */
 export async function getArticlePosts() {
   return client.fetch(
-    groq`*[_type == "post" && (categories[0]->title match "Artikel" || category match "artikel")] | order(publishedAt desc)[0...5] {
+    groq`*[_type == "post" && (category match "artikel" || categories[0]->title match "Artikel")] | order(publishedAt desc)[0...5] {
       _id,
       title,
       "slug": slug.current,
@@ -54,17 +54,20 @@ export async function getArticlePosts() {
 
 /**
  * 4. Fungsi Dinamis Rubrik (Halaman Kategori)
+ * Ditambah: downloadLink & fileSize agar bisa muncul indikator di list kategori
  */
 export async function getPostsByCategory(categoryName: string) {
   return client.fetch(
-    groq`*[_type == "post" && (categories[0]->title match $categoryName || category match $categoryName)] | order(publishedAt desc) {
+    groq`*[_type == "post" && (category match $categoryName || categories[0]->title match $categoryName)] | order(publishedAt desc) {
       _id,
       title,
       "slug": slug.current,
       "image": mainImage.asset->url,
       "publishedAt": publishedAt,
-      "category": coalesce(categories[0]->title, category, $categoryName),
+      "category": coalesce(category, categories[0]->title, $categoryName),
       "views": coalesce(views, 0),
+      "downloadLink": downloadLink,
+      "fileSize": fileSize,
       "excerpt": array::join(string::split(pt::text(body), "")[0...150], "") + "..."
     }`,
     { categoryName }
@@ -73,6 +76,7 @@ export async function getPostsByCategory(categoryName: string) {
 
 /**
  * 5. Detail Konten (Halaman Baca)
+ * KRUSIAL: Menambahkan downloadLink & fileSize agar tombol download muncul!
  */
 export async function getSinglePost(slug: string) {
   if (!slug) return null;
@@ -83,8 +87,10 @@ export async function getSinglePost(slug: string) {
       "slug": slug.current,
       "image": mainImage.asset->url,
       publishedAt,
-      "category": coalesce(categories[0]->title, category, "Umum"),
+      "category": coalesce(category, categories[0]->title, "Umum"),
       "views": coalesce(views, 0),
+      "downloadLink": downloadLink,
+      "fileSize": fileSize,
       body,
       "author": author->name
     }`,
@@ -93,11 +99,11 @@ export async function getSinglePost(slug: string) {
 }
 
 /**
- * 6. Ambil Naskah Khutbah Terbaru
+ * 6. Ambil Naskah Khutbah
  */
 export async function getKhutbahPosts() {
   return client.fetch(
-    groq`*[_type == "post" && (categories[0]->title match "Khutbah" || category match "khutbah")] | order(publishedAt desc)[0...5] {
+    groq`*[_type == "post" && (category match "khutbah" || categories[0]->title match "Khutbah")] | order(publishedAt desc)[0...5] {
       _id,
       title,
       "slug": slug.current,
@@ -110,18 +116,17 @@ export async function getKhutbahPosts() {
 }
 
 /**
- * 7. Postingan Terkait & Terpopuler (Sidebar & Bawah Artikel)
- * FIX: Limit ditambah ke 8 agar bisa ditampilkan 5 di sidebar
+ * 7. Postingan Terkait
  */
 export async function getRelatedPosts(category: string, currentSlug: string) {
   return client.fetch(
-    groq`*[_type == "post" && (categories[0]->title match $category || category match $category) && slug.current != $currentSlug] | order(publishedAt desc) [0...8] {
+    groq`*[_type == "post" && (category match $category || categories[0]->title match $category) && slug.current != $currentSlug] | order(publishedAt desc) [0...8] {
       _id,
       title,
       "slug": slug.current,
       "image": mainImage.asset->url,
       "publishedAt": publishedAt,
-      "category": coalesce(categories[0]->title, category, $category),
+      "category": coalesce(category, categories[0]->title, $category),
       "views": coalesce(views, 0)
     }`,
     { category, currentSlug }
@@ -129,7 +134,7 @@ export async function getRelatedPosts(category: string, currentSlug: string) {
 }
 
 /**
- * 8. Postingan Terpopuler Global (Sidebar Rank)
+ * 8. Postingan Terpopuler Global
  */
 export async function getPopularPosts() {
   return client.fetch(
@@ -138,7 +143,7 @@ export async function getPopularPosts() {
       title,
       "slug": slug.current,
       "publishedAt": publishedAt,
-      "category": coalesce(categories[0]->title, category, "Berita"),
+      "category": coalesce(category, categories[0]->title, "Berita"),
       "views": coalesce(views, 0)
     }`
   );
@@ -156,7 +161,7 @@ export async function getSearchedPosts(searchQuery: string) {
         title,
         "slug": slug.current,
         "image": mainImage.asset->url,
-        "category": coalesce(categories[0]->title, category, "Umum"),
+        "category": coalesce(category, categories[0]->title, "Umum"),
         "publishedAt": publishedAt,
         "views": coalesce(views, 0)
       }`,
