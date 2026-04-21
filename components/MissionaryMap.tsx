@@ -7,7 +7,13 @@ import { useEffect, useState, useRef } from 'react'
 
 export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
   const [geoData, setGeoData] = useState<any>(null);
-  const [hoveredData, setHoveredData] = useState<{ name: string; type: string } | null>(null);
+  // State diperluas untuk menangkap koordinat real-time
+  const [hoveredData, setHoveredData] = useState<{ 
+    name: string; 
+    type: string; 
+    lat?: string; 
+    lng?: string; 
+  } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +54,7 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
       className="relative h-[700px] w-full rounded-[2.5rem] overflow-hidden border-8 border-white shadow-2xl bg-slate-50 cursor-crosshair"
     >
       
-      {/* 🎯 TACTICAL HUD TARGETING - Desktop Only */}
+      {/* 🎯 TACTICAL HUD TARGETING (Kursor Follower) - Desktop Only */}
       {hoveredData && (
         <div 
           className="absolute z-[1005] pointer-events-none hidden md:block"
@@ -59,11 +65,13 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
           }}
         >
           <div className="relative p-4 min-w-[200px] backdrop-blur-sm bg-slate-900/40 border border-yellow-400/20">
+            {/* CORNER BRACKETS */}
             <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-yellow-400"></div>
             <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-yellow-400"></div>
             <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-yellow-400"></div>
             <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-yellow-400"></div>
 
+            {/* SCANLINE */}
             <div className="absolute inset-0 overflow-hidden">
                <div className="w-full h-[2px] bg-yellow-400/30 shadow-[0_0_10px_#ffc107] animate-scanline"></div>
             </div>
@@ -80,14 +88,15 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
                 {hoveredData.name}
               </div>
 
+              {/* DYNAMIC COORDINATES DATA */}
               <div className="flex gap-4 mt-2 border-t border-white/10 pt-2">
                 <div className="flex flex-col">
                   <span className="text-[7px] text-white/40 font-mono">LAT_REF</span>
-                  <span className="text-[9px] text-white font-mono">-7.426</span>
+                  <span className="text-[9px] text-white font-mono">{hoveredData.lat || "-7.426"}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[7px] text-white/40 font-mono">LNG_REF</span>
-                  <span className="text-[9px] text-white font-mono">109.289</span>
+                  <span className="text-[9px] text-white font-mono">{hoveredData.lng || "109.289"}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[7px] text-white/40 font-mono">SIGNAL</span>
@@ -99,7 +108,7 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
         </div>
       )}
 
-      {/* 📱 HUD MOBILE */}
+      {/* 📱 HUD MOBILE (Fixed Center Top) */}
       {hoveredData && (
         <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[1002] md:hidden w-[85%] animate-in fade-in slide-in-from-top-4">
           <div className="bg-slate-900/95 p-4 rounded-2xl border-b-4 border-yellow-400 shadow-2xl flex flex-col items-center">
@@ -107,6 +116,10 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
             <span className="text-white font-black uppercase text-lg tracking-tighter italic">
                {hoveredData.name}
             </span>
+            <div className="flex gap-4 mt-1">
+               <span className="text-[8px] text-white/50 font-mono">{hoveredData.lat}</span>
+               <span className="text-[8px] text-white/50 font-mono">{hoveredData.lng}</span>
+            </div>
           </div>
         </div>
       )}
@@ -128,10 +141,23 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
             style={sectorStyle} 
             onEachFeature={(feature, layer) => {
               const name = (feature.properties.nm_kelurahan || feature.properties.NAMOBJ).toUpperCase();
+              // Kalkulasi titik tengah sektor untuk koordinat HUD
+              const centerPoint = (layer as any).getBounds().getCenter();
+
               layer.on({
-                mouseover: () => setHoveredData({ name, type: 'SECTOR' }),
+                mouseover: () => setHoveredData({ 
+                    name, 
+                    type: 'SECTOR',
+                    lat: centerPoint.lat.toFixed(4),
+                    lng: centerPoint.lng.toFixed(4)
+                }),
                 mouseout: () => setHoveredData(null),
-                click: () => setHoveredData({ name, type: 'SECTOR' })
+                click: () => setHoveredData({ 
+                    name, 
+                    type: 'SECTOR',
+                    lat: centerPoint.lat.toFixed(4),
+                    lng: centerPoint.lng.toFixed(4)
+                })
               });
             }}
           />
@@ -145,9 +171,19 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
               <Marker 
                 position={pos} 
                 eventHandlers={{
-                  mouseover: () => setHoveredData({ name: `PRM ${prm.name.toUpperCase()}`, type: 'NODE' }),
+                  mouseover: () => setHoveredData({ 
+                      name: `PRM ${prm.name.toUpperCase()}`, 
+                      type: 'NODE',
+                      lat: pos[0].toFixed(4),
+                      lng: pos[1].toFixed(4)
+                  }),
                   mouseout: () => setHoveredData(null),
-                  click: () => setHoveredData({ name: `PRM ${prm.name.toUpperCase()}`, type: 'NODE' })
+                  click: () => setHoveredData({ 
+                      name: `PRM ${prm.name.toUpperCase()}`, 
+                      type: 'NODE',
+                      lat: pos[0].toFixed(4),
+                      lng: pos[1].toFixed(4)
+                  })
                 }}
                 icon={new L.DivIcon({
                   className: 'military-node',
@@ -164,12 +200,11 @@ export default function MissionaryMap({ rantings = [] }: { rantings: any[] }) {
         })}
       </MapContainer>
 
-      {/* 📡 SYSTEM STATUS OVERLAY - MODERN RED ALERT EDITION */}
+      {/* 📡 SYSTEM STATUS OVERLAY - RED ALERT EDITION */}
       <div className="absolute top-8 right-8 z-[1001] hidden sm:block">
         <div className="bg-white/90 backdrop-blur-md p-5 rounded-[1.5rem] border border-slate-200 shadow-2xl min-w-[200px]">
            <div className="flex items-center justify-between mb-2">
              <div className="flex items-center gap-2">
-                {/* 🔴 LAMPU KEDIP MERAH REALISTIK */}
                 <div className="relative flex h-3 w-3">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 shadow-[0_0_10px_#dc2626]"></span>
