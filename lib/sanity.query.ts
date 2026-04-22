@@ -2,20 +2,26 @@ import { client } from "./sanity.client";
 import { groq } from "next-sanity";
 
 /**
- * 1. Ambil SEMUA postingan terbaru + Jadwal Kajian (Homepage)
- * Menggunakan sistem Satu Pintu: Prioritas flyerImage untuk Jadwal.
+ * 1. Homepage: Ambil SEMUA postingan terbaru + Jadwal Kajian
+ * Menambahkan variabel kontrol tipe & waktu agar klasifikasi di Home akurat.
  */
 export async function getAllPosts() {
   return client.fetch(
     groq`*[_type in ["post", "jadwalKajian"]] | order(publishedAt desc)[0...10] {
       _id,
+      _type,
+      tipe,
+      hari,
+      tanggal,
       "title": coalesce(title, tema), 
       "slug": slug.current,
       "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
       "publishedAt": publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0)
-    }`
+    }`,
+    {},
+    { cache: 'no-store' }
   );
 }
 
@@ -32,7 +38,9 @@ export async function getNewsPosts() {
       "publishedAt": publishedAt,
       "category": "Berita",
       "views": coalesce(views, 0)
-    }`
+    }`,
+    {},
+    { cache: 'no-store' }
   );
 }
 
@@ -49,17 +57,25 @@ export async function getArticlePosts() {
       "publishedAt": publishedAt,
       "category": "Artikel",
       "views": coalesce(views, 0)
-    }`
+    }`,
+    {},
+    { cache: 'no-store' }
   );
 }
 
 /**
  * 4. Fungsi Dinamis Rubrik (Halaman Kategori)
+ * Menambahkan kontrol tipe agar listing kategori Jadwal Kajian tampil profesional.
  */
 export async function getPostsByCategory(categoryName: string) {
   return client.fetch(
     groq`*[(_type == "post" || _type == "jadwalKajian") && (category match $categoryName || categories[0]->title match $categoryName || "Jadwal Kajian" match $categoryName)] | order(publishedAt desc) {
       _id,
+      _type,
+      tipe,
+      hari,
+      tanggal,
+      pekan,
       "title": coalesce(title, tema),
       "slug": slug.current,
       "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
@@ -70,19 +86,25 @@ export async function getPostsByCategory(categoryName: string) {
       "fileSize": fileSize,
       "excerpt": array::join(string::split(pt::text(body), "")[0...150], "") + "..."
     }`,
-    { categoryName }
+    { categoryName },
+    { cache: 'no-store' }
   );
 }
 
 /**
- * 5. Detail Konten (Halaman Baca)
- * Menarik detail lengkap ustadz dan masjid untuk tampilan detail khusus.
+ * 5. Detail Konten (Halaman Baca) - KRITIKAL!
+ * Diperbarui untuk mencegah error "undefined" pada hari/tanggal.
  */
 export async function getSinglePost(slug: string) {
   if (!slug) return null;
   return client.fetch(
     groq`*[_type in ["post", "jadwalKajian"] && slug.current == $slug][0] {
       _id,
+      _type,
+      tipe,        
+      hari,        
+      tanggal,     
+      pekan,       
       "title": coalesce(title, tema),
       "slug": slug.current,
       "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
@@ -99,7 +121,8 @@ export async function getSinglePost(slug: string) {
       "namaMasjid": masjid->name,
       "alamatMasjid": masjid->address
     }`,
-    { slug }
+    { slug },
+    { cache: 'no-store' }
   );
 }
 
@@ -116,7 +139,9 @@ export async function getKhutbahPosts() {
       "publishedAt": publishedAt,
       "category": "Khutbah",
       "views": coalesce(views, 0)
-    }`
+    }`,
+    {},
+    { cache: 'no-store' }
   );
 }
 
@@ -127,6 +152,9 @@ export async function getRelatedPosts(category: string, currentSlug: string) {
   return client.fetch(
     groq`*[_type in ["post", "jadwalKajian"] && (category match $category || categories[0]->title match $category || "Jadwal Kajian" match $category) && slug.current != $currentSlug] | order(publishedAt desc) [0...8] {
       _id,
+      tipe,
+      hari,
+      tanggal,
       "title": coalesce(title, tema),
       "slug": slug.current,
       "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
@@ -134,12 +162,13 @@ export async function getRelatedPosts(category: string, currentSlug: string) {
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0)
     }`,
-    { category, currentSlug }
+    { category, currentSlug },
+    { cache: 'no-store' }
   );
 }
 
 /**
- * 8. Postingan Terpopuler Global
+ * 8. Postingan Terpopuler
  */
 export async function getPopularPosts() {
   return client.fetch(
@@ -150,12 +179,14 @@ export async function getPopularPosts() {
       "publishedAt": publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0)
-    }`
+    }`,
+    {},
+    { cache: 'no-store' }
   );
 }
 
 /**
- * 9. Fungsi Pencarian Global
+ * 9. Pencarian Global
  */
 export async function getSearchedPosts(searchQuery: string) {
   if (!searchQuery) return [];
@@ -163,6 +194,9 @@ export async function getSearchedPosts(searchQuery: string) {
     return await client.fetch(
       groq`*[_type in ["post", "jadwalKajian"] && (title match $searchQuery || tema match $searchQuery || pt::text(body) match $searchQuery)] | order(publishedAt desc) {
         _id,
+        tipe,
+        hari,
+        tanggal,
         "title": coalesce(title, tema),
         "slug": slug.current,
         "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
@@ -170,7 +204,8 @@ export async function getSearchedPosts(searchQuery: string) {
         "publishedAt": publishedAt,
         "views": coalesce(views, 0)
       }`,
-      { searchQuery: `*${searchQuery}*` }
+      { searchQuery: `*${searchQuery}*` },
+      { cache: 'no-store' }
     );
   } catch (error) {
     console.error("Gagal melakukan pencarian:", error);
@@ -179,7 +214,7 @@ export async function getSearchedPosts(searchQuery: string) {
 }
 
 /**
- * 10. Ambil Jadwal Kajian Hari Ini (Untuk Flyer & Halaman Utama Radar)
+ * 10. Jadwal Kajian Hari Ini (Khusus Flyer & Dashboard Dakwah)
  */
 export async function getKajianHariIni(hari: string, tanggal: string, pekanKe: string) {
   return client.fetch(
@@ -201,6 +236,7 @@ export async function getKajianHariIni(hari: string, tanggal: string, pekanKe: s
       "logoMasjid": masjid->logo.asset->url,
       "flyerImageUrl": flyerImage.asset->url
     }`,
-    { hari, tanggal, pekanKe }
+    { hari, tanggal, pekanKe },
+    { cache: 'no-store' }
   );
 }
