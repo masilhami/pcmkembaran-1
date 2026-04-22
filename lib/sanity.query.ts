@@ -3,7 +3,7 @@ import { groq } from "next-sanity";
 
 /**
  * 1. Ambil SEMUA postingan terbaru + Jadwal Kajian (Homepage)
- * Memprioritaskan Flyer yang di-upload sebagai thumbnail utama.
+ * Menggunakan sistem Satu Pintu: Prioritas flyerImage untuk Jadwal.
  */
 export async function getAllPosts() {
   return client.fetch(
@@ -11,7 +11,7 @@ export async function getAllPosts() {
       _id,
       "title": coalesce(title, tema), 
       "slug": slug.current,
-      "image": coalesce(flyerImage.asset->url, mainImage.asset->url), // Prioritas Flyer -> MainImage
+      "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
       "publishedAt": publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0)
@@ -76,6 +76,7 @@ export async function getPostsByCategory(categoryName: string) {
 
 /**
  * 5. Detail Konten (Halaman Baca)
+ * Menarik detail lengkap ustadz dan masjid untuk tampilan detail khusus.
  */
 export async function getSinglePost(slug: string) {
   if (!slug) return null;
@@ -178,7 +179,7 @@ export async function getSearchedPosts(searchQuery: string) {
 }
 
 /**
- * 10. Ambil Jadwal Kajian Hari Ini (Untuk Flyer & Dual-Mode)
+ * 10. Ambil Jadwal Kajian Hari Ini (Untuk Flyer & Halaman Utama Radar)
  */
 export async function getKajianHariIni(hari: string, tanggal: string, pekanKe: string) {
   return client.fetch(
@@ -198,7 +199,7 @@ export async function getKajianHariIni(hari: string, tanggal: string, pekanKe: s
       "namaMasjid": masjid->name,
       "alamatMasjid": masjid->address,
       "logoMasjid": masjid->logo.asset->url,
-      "flyerImageUrl": flyerImage.asset->url // AMUNISI FLYER UPLOAD-AN
+      "flyerImageUrl": flyerImage.asset->url
     }`,
     { hari, tanggal, pekanKe }
   );

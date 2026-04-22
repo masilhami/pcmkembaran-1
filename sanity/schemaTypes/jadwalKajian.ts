@@ -1,12 +1,12 @@
 import { defineType, defineField } from 'sanity'
-import { CalendarIcon, ImageIcon } from '@sanity/icons'
+import { CalendarIcon } from '@sanity/icons'
 
 export default defineType({
   name: 'jadwalKajian',
   title: 'Pusat Jadwal Kajian',
   type: 'document',
   icon: CalendarIcon,
-  // Mengelompokkan field agar UI rapi dan intuitif
+  // Kelompok agar formulir rapi (Grouping)
   groups: [
     { name: 'waktu', title: 'Konfigurasi Waktu' },
     { name: 'detail', title: 'Detail Kajian' },
@@ -32,7 +32,7 @@ export default defineType({
         source: 'tema', 
         maxLength: 96 
       },
-      validation: (Rule) => Rule.required(),
+      validation: (Rule) => Rule.required().error('Klik "Generate" untuk membuat link otomatis.'),
     }),
 
     /* --- 2. PENGATURAN WAKTU & TIPE --- */
@@ -66,7 +66,7 @@ export default defineType({
     defineField({
       name: 'pekan',
       title: 'Pekan Ke-',
-      description: 'Kosongkan jika SETIAP PEKAN. Pilih angka untuk ustadz bergilir.',
+      description: 'KOSONGKAN jika SETIAP PEKAN. Pilih angka untuk ustadz bergilir (Misal: Ustadz A Pekan 1, Ustadz B Pekan 2).',
       type: 'array',
       group: 'waktu',
       of: [{ type: 'string' }],
@@ -88,7 +88,7 @@ export default defineType({
       title: 'Tanggal Pelaksanaan',
       type: 'date',
       group: 'waktu',
-      description: 'Khusus untuk Tabligh Akbar / Acara Sekali Jalan.',
+      description: 'Khusus untuk Tabligh Akbar / Acara sekali jalan.',
       hidden: ({ document }) => document?.tipe !== 'insidental',
     }),
 
@@ -115,27 +115,28 @@ export default defineType({
       title: 'Waktu / Jam',
       type: 'string',
       group: 'detail',
-      placeholder: 'Ba\'da Maghrib - Selesai',
+      placeholder: 'Pukul 08.00 - Selesai',
       validation: (Rule) => Rule.required(),
     }),
 
-    /* --- 4. MEDIA (DUAL-MODE FLYER) --- */
     defineField({
-      name: 'flyerImage',
-      title: 'Upload Flyer Resmi (Custom)',
-      type: 'image',
-      group: 'meta',
-      description: 'Jika ada flyer desain sendiri, upload di sini. Ini akan menggantikan flyer otomatis.',
-      options: { hotspot: true },
+      name: 'keterangan',
+      title: 'Keterangan Tambahan / Deskripsi',
+      type: 'text',
+      group: 'detail',
+      rows: 4,
+      placeholder: 'Tuliskan detail deskripsi kajian di sini agar muncul di halaman baca...',
     }),
 
+    /* --- 4. MEDIA (SATU PINTU - ANTI BINGUNG) --- */
     defineField({
-      name: 'mainImage',
-      title: 'Thumbnail / Cover Berita',
+      name: 'flyerImage', // Field tunggal yang digunakan untuk semua kebutuhan
+      title: 'Foto Flyer / Gambar Utama',
       type: 'image',
       group: 'meta',
-      description: 'Gambar ini muncul di daftar berita homepage jika Flyer Resmi kosong.',
-      options: { hotspot: true },
+      description: 'Satu gambar untuk semua: Muncul di Homepage, Flyer, dan Halaman Baca.',
+      options: { hotspot: true }, // Penting agar wajah ustadz tidak terpotong otomatis
+      validation: (Rule) => Rule.required().error('Wajib upload satu gambar sebagai identitas visual.'),
     }),
 
     defineField({
@@ -144,14 +145,6 @@ export default defineType({
       type: 'datetime',
       group: 'meta',
       initialValue: () => (new Date()).toISOString(),
-    }),
-
-    defineField({
-      name: 'keterangan',
-      title: 'Keterangan Tambahan',
-      type: 'text',
-      group: 'detail',
-      rows: 3,
     }),
   ],
 
@@ -163,18 +156,16 @@ export default defineType({
       tipe: 'tipe',
       hari: 'hari',
       tanggal: 'tanggal',
-      flyer: 'flyerImage',
-      thumb: 'mainImage'
+      media: 'flyerImage', // Melihat ke field tunggal yang baru
     },
     prepare(selection) {
-      const { title, ustadz, tipe, hari, tanggal, flyer, thumb } = selection
+      const { title, ustadz, tipe, hari, tanggal, media } = selection
       const detailWaktu = tipe === 'rutin' ? `Rutin: ${hari}` : `Insidental: ${tanggal}`
       
       return {
         title: title || 'Untitled Tema',
         subtitle: `${ustadz} | ${detailWaktu}`,
-        // Menampilkan thumbnail flyer di sidebar jika ada
-        media: flyer || thumb || CalendarIcon
+        media: media || CalendarIcon
       }
     }
   }
