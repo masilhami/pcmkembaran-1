@@ -3,14 +3,17 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { User, MapPin, Clock, Info, ArrowLeft, Ticket, CheckCircle2 } from "lucide-react";
 import ShareButtons from "@/components/ShareButtons";
-import InteractiveFlyer from "./InteractiveFlyer"; // Komponen Client yang akan kita buat di bawah
+import InteractiveFlyer from "./InteractiveFlyer"; 
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getSinglePost(slug);
+  
   if (!post) return { title: "Jadwal Tidak Ditemukan" };
+  
   return {
-    title: `Kajian: ${post.title} - PCM Kembaran`,
+    // Perbaikan: Hapus "- PCM Kembaran" agar tidak dobel dengan template layout
+    title: `Kajian: ${post.title}`, 
     description: post.keterangan || `Hadirilah kajian bersama ${post.ustadz} di ${post.namaMasjid}`,
     openGraph: {
       images: [post.image || "/logo-md.png"]
