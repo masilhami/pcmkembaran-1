@@ -172,18 +172,22 @@ export async function getSearchedPosts(searchQuery: string) {
 }
 
 /**
- * 10. Ambil Jadwal Kajian Hari Ini (UPGRADED: RUTIN & INSIDENTAL)
- * Menampilkan kajian mingguan berdasarkan HARI atau kajian akbar berdasarkan TANGGAL.
+ * 10. Ambil Jadwal Kajian Hari Ini (ULTRA UPGRADE)
+ * Mendukung: 
+ * - Kajian Insidental (Tanggal)
+ * - Kajian Rutin (Hari) 
+ * - Kajian Bergilir (Hari + Pekan Ke-n)
  */
-export async function getKajianHariIni(hari: string, tanggal: string) {
+export async function getKajianHariIni(hari: string, tanggal: string, pekanKe: string) {
   return client.fetch(
     groq`*[_type == "jadwalKajian" && (
-      (tipe == "rutin" && hari == $hari) || 
-      (tipe == "insidental" && tanggal == $tanggal)
+      (tipe == "insidental" && tanggal == $tanggal) || 
+      (tipe == "rutin" && hari == $hari && (count(pekan) == 0 || !defined(pekan) || $pekanKe in pekan))
     )] | order(tipe desc) {
       _id,
       tipe,
       hari,
+      pekan,
       tanggal,
       ustadz,
       waktu,
@@ -193,6 +197,6 @@ export async function getKajianHariIni(hari: string, tanggal: string) {
       "alamatMasjid": masjid->address,
       "logoMasjid": masjid->logo.asset->url
     }`,
-    { hari, tanggal }
+    { hari, tanggal, pekanKe }
   );
 }
