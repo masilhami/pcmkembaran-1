@@ -26,51 +26,48 @@ export default function Footer() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '40px', maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
         
         {/* KOLOM 1: BRAND & SOSIAL MEDIA */}
-<div>
-  <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '20px' }}>
-    <Image src="/logo-md.png" alt="Logo PCM Kembaran" width={45} height={45} style={{ borderRadius: '50%' }} />
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      
-      {/* BRAND DIKECILKAN KE 17px & OUTLINE DIHAPUS AGAR LEBIH RAPI */}
-      <span style={{ 
-        fontSize: '17px', 
-        fontWeight: '900', 
-        color: '#004a8e', 
-        lineHeight: '1', 
-        fontStyle: 'italic', 
-        letterSpacing: '-0.3px'
-      }}>
-        PCM
-        <span style={{ 
-          color: '#f4c300',
-          WebkitTextStroke: '0', /* Outline Dihapus */
-          textShadow: 'none'      /* Shadow Dihapus agar lebih tajam */
-        }}>
-          KEMBARAN
-        </span>
-        <span style={{ color: '#bbb', fontWeight: '300', fontSize: '13px', marginLeft: '1px' }}>
-          .COM
-        </span>
-      </span>
-      
-      <span style={{ 
-        fontSize: '9px', 
-        color: '#666', 
-        fontWeight: '700', 
-        marginTop: '3px', 
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px'
-      }}>
-        Dakwah Berkemajuan, Mencerahkan Kehidupan
-      </span>
-    </div>
-  </Link>
-  
-  <p style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '25px', textAlign: 'justify' }}>
-    Situs resmi Pimpinan Cabang Muhammadiyah (PCM) Kembaran, Kabupaten Banyumas. Wadah informasi dakwah, pendidikan, dan pemberdayaan umat untuk mewujudkan masyarakat Islam yang sebenar-benarnya di wilayah Kecamatan Kembaran.
-  </p>
+        <div>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', marginBottom: '20px' }}>
+            <Image src="/logo-md.png" alt="Logo PCM Kembaran" width={45} height={45} style={{ borderRadius: '50%' }} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ 
+                fontSize: '17px', 
+                fontWeight: '900', 
+                color: '#004a8e', 
+                lineHeight: '1', 
+                fontStyle: 'italic', 
+                letterSpacing: '-0.3px'
+              }}>
+                PCM
+                <span style={{ 
+                  color: '#f4c300',
+                  WebkitTextStroke: '0',
+                  textShadow: 'none'
+                }}>
+                  KEMBARAN
+                </span>
+                <span style={{ color: '#bbb', fontWeight: '300', fontSize: '13px', marginLeft: '1px' }}>
+                  .COM
+                </span>
+              </span>
+              
+              <span style={{ 
+                fontSize: '9px', 
+                color: '#666', 
+                fontWeight: '700', 
+                marginTop: '3px', 
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Dakwah Berkemajuan, Mencerahkan Kehidupan
+              </span>
+            </div>
+          </Link>
           
-          {/* SOSIAL MEDIA */}
+          <p style={{ fontSize: '13px', color: '#666', lineHeight: '1.7', marginBottom: '25px', textAlign: 'justify' }}>
+            Situs resmi Pimpinan Cabang Muhammadiyah (PCM) Kembaran, Kabupaten Banyumas. Wadah informasi dakwah, pendidikan, dan pemberdayaan umat untuk mewujudkan masyarakat Islam yang sebenar-benarnya di wilayah Kecamatan Kembaran.
+          </p>
+          
           <div style={{ display: 'flex', gap: '12px' }}>
             <Link href="#" style={iconCircleStyle('#1877F2')}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -134,7 +131,9 @@ export default function Footer() {
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
           <p style={{ margin: 0 }}>
             © {currentYear} <strong>PCM KEMBARAN</strong> — Pimpinan Cabang Muhammadiyah Kembaran, Banyumas. <br />
-            <span style={{ fontSize: '11px' }}>Dikelola oleh Majelis Pustaka dan Informasi (MPI) PCM Kembaran.</span>
+            <span style={{ fontSize: '11px' }}>
+              Dikelola oleh <Link href="https://onislam.web.id" target="_blank" style={{ color: '#004a8e', textDecoration: 'none', fontWeight: '700' }}>Majelis Pustaka dan Informasi (MPI) PCM Kembaran</Link>.
+            </span>
           </p>
         </div>
       </div>
