@@ -1,122 +1,230 @@
-import { getAllPosts } from "@/lib/sanity.query"; 
+import { client } from "@/lib/sanity.client";
+import { groq } from "next-sanity";
 import Link from "next/link";
-// 1. IMPOR KOMPONEN IMAGE UNTUK OPTIMASI
 import Image from "next/image";
+import { ChevronLeft, ChevronRight, Eye, CalendarDays, ArrowRight } from "lucide-react";
 
-export default async function LatestPosts() {
-  const posts = await getAllPosts();
+/**
+ * 1. FUNGSI FETCH DENGAN LOGIKA KALIBRASI WAKTU
+ * Menambahkan 'coalesce' agar data yang tidak punya tanggal rilis (Jadwal Kajian)
+ * tidak terbaca sebagai tahun 1970.
+ */
+async function getPaginatedPosts(page: number) {
+  const limit = 5;
+  const start = (page - 1) * limit;
+  const end = start + limit;
+
+  const query = groq`*[_type in ["post", "jadwalKajian"]] | order(coalesce(publishedAt, _createdAt) desc) [$start...$end] {
+    _id,
+    "title": coalesce(title, tema), 
+    "slug": slug.current,
+    "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
+    // FIX: Gunakan tanggal dibuat (_createdAt) jika tanggal publikasi kosong
+    "publishedAt": coalesce(publishedAt, _createdAt),
+    "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
+    "views": coalesce(views, 0)
+  }`;
+
+  return client.fetch(query, { start, end: end + 1 }, { cache: 'no-store' });
+}
+
+/**
+ * 2. KOMPONEN UTAMA
+ */
+export default async function LatestPosts({ 
+  searchParams 
+}: { 
+  searchParams: Promise<{ page?: string }> | any 
+}) {
+  // PROTOKOL ASYNC: Wajib di-await untuk Next.js 15+
+  const sParams = await searchParams;
+  const currentPage = Number(sParams?.page) || 1;
+  
+  const allFetchedPosts = await getPaginatedPosts(currentPage);
+  
+  // Pisahkan 5 data utama dan gunakan data ke-6 sebagai indikator halaman selanjutnya
+  const posts = allFetchedPosts.slice(0, 5);
+  const hasNextPage = allFetchedPosts.length > 5;
 
   return (
-    <section style={{ paddingBottom: '50px' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+    <section className="latest-posts-wrapper">
+      <div className="posts-stack-vertical">
         
         {posts.map((post: any) => {
-          // Logika rute dinamis: /[category]/[slug]
           const categoryPath = post.category?.toLowerCase().replace(/\s+/g, '-') || "artikel";
           
           return (
             <Link 
               href={`/${categoryPath}/${post.slug}`} 
               key={post._id} 
-              className="post-card-item-horizontal"
+              className="card-oblong-premium group"
             >
-              {/* 2. THUMBNAIL OPTIMIZED */}
-              <div className="thumb-wrapper">
+              {/* VISUAL KIRI (PROPORSI OBLONG) */}
+              <div className="visual-frame">
                 <Image 
                   src={post.image || "/logo-md.png"} 
                   alt={post.title} 
                   fill
-                  // Mengunduh gambar sesuai ukuran elemen (200px)
-                  sizes="(max-width: 768px) 100vw, 200px"
-                  style={{ objectFit: 'cover' }} 
+                  sizes="240px"
+                  className="object-cover transition-transform duration-700 group-hover:scale-110" 
                 />
+                <div className="cat-badge">{post.category}</div>
               </div>
 
-              {/* 3. KONTEN TEKS PREMIUM */}
-              <div className="post-text-content">
-                <span className="post-cat-label" style={{ 
-                  color: post.category?.toLowerCase() === 'berita' ? '#e64d31' : '#004a8e' 
-                }}>
-                  {post.category}
-                </span>
+              {/* KONTEN KANAN */}
+              <div className="content-frame">
+                <h3 className="post-title-text">{post.title}</h3>
                 
-                <h3 className="post-item-title">
-                  {post.title}
-                </h3>
-                
-                {/* METADATA */}
-                <div className="post-meta-row">
-                  <span suppressHydrationWarning>
-                    {new Date(post.publishedAt).toLocaleDateString('id-ID', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </span>
-                  <span className="meta-dot">•</span>
-                  <div className="post-views-box">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                    <span className="gold-views">
-                      {post.views || 0} Kali Dibaca
+                <div className="meta-info-row">
+                  <div className="meta-unit">
+                    <CalendarDays size={14} className="text-blue-500" />
+                    <span suppressHydrationWarning>
+                      {/* FIX DISPLAY: Tanggal sudah terkalibrasi dari query */}
+                      {new Date(post.publishedAt).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
                     </span>
                   </div>
+                  <div className="meta-divider"></div>
+                  <div className="meta-unit gold">
+                    <Eye size={14} />
+                    <span>{post.views || 0} Kali Dibaca</span>
+                  </div>
                 </div>
+              </div>
+              
+              <div className="entry-arrow">
+                 <ArrowRight size={20} />
               </div>
             </Link>
           );
         })}
 
         {posts.length === 0 && (
-           <p className="empty-msg">Belum ada postingan terbaru dari PCM Kembaran.</p>
+           <div className="empty-state-notice">
+              <p>Belum ada informasi tambahan pada halaman ini.</p>
+              <Link href="/berita">Refresh Halaman</Link>
+           </div>
         )}
       </div>
 
-      {/* 4. TOMBOL INDEKS */}
-      <div style={{ marginTop: '40px' }}>
-        <Link href="/berita" className="btn-indeks">
-          Indeks Berita PCM <span>➔</span>
-        </Link>
+      {/* --- PAGINATION CONTROL (PILL STYLE) --- */}
+      <div className="pagination-dashboard-center">
+        <div className="pill-nav">
+          {currentPage > 1 ? (
+            <Link href={`?page=${currentPage - 1}`} className="btn-pill active">
+              <ChevronLeft size={18} /> Prev
+            </Link>
+          ) : (
+            <div className="btn-pill disabled"><ChevronLeft size={18} /> Prev</div>
+          )}
+
+          <div className="page-indicator-box">
+             <span className="label">Halaman</span>
+             <span className="current">{currentPage}</span>
+          </div>
+
+          {hasNextPage ? (
+            <Link href={`?page=${currentPage + 1}`} className="btn-pill active">
+              Next <ChevronRight size={18} />
+            </Link>
+          ) : (
+            <div className="btn-pill disabled">Next <ChevronRight size={18} /></div>
+          )}
+        </div>
       </div>
 
-      {/* CSS INTERNAL UNTUK KERAPIHAN RESPONSIVE */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .post-card-item-horizontal { 
-          display: flex; gap: 20px; text-decoration: none; align-items: flex-start; 
-          transition: 0.3s;
-        }
-        .post-card-item-horizontal:hover { opacity: 0.7; }
+        .latest-posts-wrapper { width: 100%; }
         
-        .thumb-wrapper { 
-          width: 200px; height: 125px; border-radius: 12px; overflow: hidden; 
-          flex-shrink: 0; background: #f8f9fa; position: relative;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        .posts-stack-vertical { 
+           display: flex; 
+           flex-direction: column; 
+           gap: 20px; 
+           width: 100%;
         }
-
-        .post-text-content { display: flex; flex-direction: column; gap: 6px; }
-        .post-cat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-        .post-item-title { font-size: 18px; font-weight: 800; color: #1a1a1a; margin: 0; line-height: 1.4; }
         
-        .post-meta-row { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #999; font-weight: 600; }
-        .meta-dot { color: #ddd; }
-        .post-views-box { display: flex; align-items: center; gap: 4px; }
-        .gold-views { color: #ffc107; font-weight: 800; }
-
-        .btn-indeks { 
-          display: inline-flex; alignItems: center; gap: 10px; background: #004a8e; 
-          color: #fff; padding: 12px 28px; border-radius: 10px; text-decoration: none; 
-          font-weight: 900; font-size: 13px; text-transform: uppercase;
-          box-shadow: 0 8px 15px rgba(0,74,142,0.2); transition: 0.3s;
+        .card-oblong-premium { 
+          display: flex; 
+          align-items: center; 
+          gap: 25px; 
+          background: #fff; 
+          padding: 16px; 
+          border-radius: 20px; 
+          border: 1px solid #f1f5f9;
+          text-decoration: none; 
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
         }
-        .btn-indeks:hover { transform: translateY(-3px); box-shadow: 0 12px 20px rgba(0,74,142,0.3); }
+        .card-oblong-premium:hover { 
+          transform: translateX(10px); 
+          box-shadow: 0 20px 40px -12px rgba(0,74,142,0.12);
+          border-color: #004a8e;
+        }
 
-        .empty-msg { color: #888; text-align: center; padding: 40px; border: 1px dashed #ddd; border-radius: 15px; }
+        .visual-frame { 
+          width: 180px; 
+          height: 110px; 
+          border-radius: 14px; 
+          overflow: hidden; 
+          flex-shrink: 0; 
+          position: relative; 
+          background: #f8fafc;
+        }
+        .cat-badge {
+          position: absolute; bottom: 0; left: 0; right: 0;
+          background: rgba(0,74,142,0.9); color: #fff; font-size: 8px;
+          font-weight: 900; text-align: center; padding: 4px; 
+          text-transform: uppercase; letter-spacing: 1px;
+        }
 
-        @media (max-width: 640px) {
-          .post-card-item-horizontal { flex-direction: column; gap: 15px; }
-          .thumb-wrapper { width: 100%; height: 180px; }
+        .content-frame { flex: 1; min-width: 0; }
+        .post-title-text { 
+          font-size: 18px; 
+          font-weight: 900; 
+          color: #0f172a; 
+          margin-bottom: 10px; 
+          line-height: 1.3;
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        .meta-info-row { display: flex; align-items: center; gap: 15px; }
+        .meta-unit { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #94a3b8; }
+        .meta-unit.gold { color: #ffb300; }
+        .meta-divider { width: 4px; height: 4px; background: #f1f5f9; border-radius: 50%; }
+
+        .entry-arrow { color: #e2e8f0; margin-left: 10px; transition: 0.3s; flex-shrink: 0; }
+        .card-oblong-premium:hover .entry-arrow { color: #004a8e; transform: translateX(5px); }
+
+        /* PAGINATION DASHBOARD */
+        .pagination-dashboard-center { margin-top: 50px; display: flex; justify-content: center; width: 100%; }
+        .pill-nav { 
+          display: flex; align-items: center; background: #fff; 
+          padding: 8px; border-radius: 100px; border: 1px solid #f1f5f9;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        .btn-pill { 
+          display: flex; align-items: center; gap: 8px; padding: 10px 24px; 
+          border-radius: 100px; font-size: 11px; font-weight: 900; 
+          text-transform: uppercase; transition: 0.3s; text-decoration: none;
+        }
+        .btn-pill.active { background: #004a8e; color: #fff; }
+        .btn-pill.active:hover { background: #0f172a; }
+        .btn-pill.disabled { color: #cbd5e1; cursor: not-allowed; }
+
+        .page-indicator-box { padding: 0 25px; text-align: center; border-left: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; }
+        .page-indicator-box .label { display: block; font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+        .page-indicator-box .current { font-size: 16px; font-weight: 900; color: #004a8e; }
+
+        .empty-state-notice { text-align: center; padding: 60px; color: #94a3b8; font-weight: 700; border: 2px dashed #f1f5f9; border-radius: 20px; }
+
+        @media (max-width: 768px) {
+          .card-oblong-premium { flex-direction: column; align-items: flex-start; padding: 20px; }
+          .visual-frame { width: 100%; height: 160px; }
+          .entry-arrow { display: none; }
+          .post-title-text { font-size: 16px; }
         }
       `}} />
     </section>
