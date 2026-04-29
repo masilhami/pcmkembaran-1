@@ -18,10 +18,20 @@ export async function generateMetadata({
   const post = await getSinglePost(slug);
   if (!post) return { title: "Berita Tidak Ditemukan" };
   const url = `https://pcmkembaran.com/${category}/${slug}`;
+  
   return {
     title: post.title,
     description: post.excerpt || "Baca informasi terbaru dari PCM Kembaran",
-    openGraph: { title: post.title, description: post.excerpt, url: url, images: [{ url: post.image || "/opengraph-image.jpg" }], type: "article" },
+    openGraph: { 
+      title: post.title, 
+      description: post.excerpt, 
+      url: url, 
+      images: [{ 
+        url: post.image || "/opengraph-image.jpg",
+        alt: post.imageAlt || post.title // 🛡️ SEO: Alt text di OpenGraph
+      }], 
+      type: "article" 
+    },
   };
 }
 
@@ -43,7 +53,7 @@ export default async function PostDetail({
     <main className="post-detail-main">
       <ViewCounter slug={slug} />
       
-      {/* 1. BREADCRUMB - RESPONSIVE */}
+      {/* 1. BREADCRUMB */}
       <nav className="breadcrumb">
         <Link href="/">Home</Link> <span className="sep">/</span>
         <Link href={`/${category}`} className="breadcrumb-cat">{category}</Link>
@@ -76,14 +86,29 @@ export default async function PostDetail({
             </div>
           </header>
 
-          {/* FEATURED IMAGE - ANTI MELEDAK */}
+          {/* 🖼️ FEATURED IMAGE - SEO & CAPTION ENABLED */}
           {post.image && (
-            <div className="featured-img-container">
-              <Image src={post.image} alt={post.title} fill priority sizes="(max-width: 1200px) 100vw, 800px" style={{ objectFit: 'cover' }} />
-            </div>
+            <figure className="featured-figure">
+              <div className="featured-img-container">
+                <Image 
+                  src={post.image} 
+                  alt={post.imageAlt || post.title} // 🛡️ SEO: Menggunakan Alt dari Sanity
+                  fill 
+                  priority 
+                  sizes="(max-width: 1200px) 100vw, 800px" 
+                  style={{ objectFit: 'cover' }} 
+                />
+              </div>
+              {/* 🛡️ CAPTION: Muncul di bawah gambar utama jika diisi */}
+              {post.imageCaption && (
+                <figcaption className="main-image-caption">
+                  {post.imageCaption}
+                </figcaption>
+              )}
+            </figure>
           )}
 
-          {/* KONTEN ARTIKEL - DENGAN FIX LIST/NOMOR */}
+          {/* KONTEN ARTIKEL - PortableTextContent akan menangani caption di dalam body */}
           <div className="article-content">
             {post.body && <PortableTextContent value={post.body} />}
           </div>
@@ -106,7 +131,7 @@ export default async function PostDetail({
             <CommentSection slug={slug} />
           </div>
 
-          {/* RELATED POSTS - GRID SYSTEM */}
+          {/* RELATED POSTS */}
           {relatedPosts?.length > 0 && (
             <section className="related-section">
               <h3 className="section-title">Baca Juga</h3>
@@ -146,7 +171,7 @@ export default async function PostDetail({
                     <div className="pop-number">0{idx + 1}</div>
                     <div className="pop-info">
                       <p className="pop-title-text">{pop.title}</p>
-                      <span className="pop-date">
+                      <span className="pop-date" suppressHydrationWarning>
                         {pop.publishedAt ? new Date(pop.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Baru Saja'}
                       </span>
                     </div>
@@ -181,8 +206,11 @@ export default async function PostDetail({
         .dot-sep { margin: 0 8px; color: #cbd5e1; }
         .views-count { color: var(--abah-blue); font-weight: 800; }
 
-        .featured-img-container { position: relative; width: 100%; aspect-ratio: 16/9; max-height: 550px; border-radius: 24px; overflow: hidden; margin-bottom: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); background: #f1f5f9; }
-        
+        /* IMAGE & CAPTION STYLE */
+        .featured-figure { margin: 0 0 40px 0; }
+        .featured-img-container { position: relative; width: 100%; aspect-ratio: 16/9; max-height: 550px; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.08); background: #f1f5f9; }
+        .main-image-caption { margin-top: 12px; font-size: 14px; color: var(--text-slate); text-align: center; font-style: italic; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+
         /* 🛡️ FIX NOMOR LIST & BULLET POINT (image_97e4a0) 🛡️ */
         .article-content { font-size: 19px; line-height: 1.85; color: #334155; }
         .article-content p { margin-bottom: 1.8rem; }
@@ -190,6 +218,10 @@ export default async function PostDetail({
         .article-content ul { list-style-type: disc !important; margin-left: 1.5rem !important; margin-bottom: 1.5rem; padding-left: 1rem; }
         .article-content li { margin-bottom: 0.8rem; padding-left: 0.5rem; }
         .article-content li::marker { color: var(--abah-blue); font-weight: bold; }
+        
+        /* 🛡️ BODY IMAGE CAPTION (Portable Text) 🛡️ */
+        .article-content figure { margin: 2rem 0; }
+        .article-content figcaption { margin-top: 10px; font-size: 14px; color: var(--text-slate); text-align: center; }
 
         /* SIDEBAR & STICKY */
         .sidebar { height: 100%; min-width: 340px; }
@@ -199,7 +231,7 @@ export default async function PostDetail({
         .widget-title.gold { border-left: 5px solid var(--abah-gold); color: #854d0e; }
         .widget-title.blue { border-left: 5px solid var(--abah-blue); color: var(--abah-blue); }
 
-        /* SOCIAL BUTTONS */
+        /* SOCIAL & HOVER GLOW */
         .social-flex { display: flex; gap: 8px; flex-wrap: wrap; }
         .social-btn { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); color: #fff; }
         .social-btn:hover { transform: translateY(-4px); filter: brightness(1.1); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
@@ -209,14 +241,10 @@ export default async function PostDetail({
         .social-btn.tt { background: #000; }
         .social-btn.wa { background: #25d366; }
 
-        /* TERPOPULER - EFEK GLOW RESTORED */
         .popular-wrapper { display: flex; flex-direction: column; gap: 20px; }
         .pop-card { display: flex; gap: 16px; text-decoration: none; align-items: flex-start; transition: 0.3s; }
         .pop-number { font-size: 32px; font-weight: 900; color: #f1f5f9; line-height: 1; transition: 0.3s; min-width: 45px; }
         .pop-title-text { font-size: 14px; font-weight: 700; line-height: 1.4; color: var(--text-dark); transition: 0.3s; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .pop-date { font-size: 11px; color: var(--text-slate); font-weight: 600; }
-
-        /* HOVER EFFECTS TERPOPULER */
         .pop-card:hover .pop-number { color: var(--abah-gold); text-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
         .pop-card:hover .pop-title-text { color: var(--abah-blue); transform: translateX(4px); }
 
@@ -231,9 +259,6 @@ export default async function PostDetail({
 
         /* DOWNLOAD BOX */
         .download-box-tactical { margin: 40px 0; padding: 30px; background: #f8fafc; border: 1px solid var(--border); border-left: 6px solid var(--abah-blue); border-radius: 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-        .dl-label { font-size: 10px; font-weight: 900; color: var(--abah-blue); letter-spacing: 2px; }
-        .dl-title { font-size: 18px; font-weight: 800; color: var(--text-dark); margin: 5px 0; }
-        .dl-size { font-size: 11px; font-weight: 700; color: var(--text-slate); }
         .dl-button-modern { background: var(--abah-blue); color: #fff; padding: 16px 28px; border-radius: 16px; font-weight: 900; font-size: 12px; text-decoration: none; transition: 0.3s; white-space: nowrap; box-shadow: 0 10px 20px rgba(0,74,142,0.15); }
         .dl-button-modern:hover { background: var(--abah-gold); color: var(--abah-blue); transform: translateY(-3px); }
 
@@ -242,13 +267,10 @@ export default async function PostDetail({
           .main-grid-layout { grid-template-columns: 1fr; gap: 40px; } 
           .sticky-sidebar { position: static; } 
           .sidebar { min-width: 0; } 
-          .related-grid { grid-template-columns: 1fr; }
-          .download-box-tactical { flex-direction: column; text-align: center; }
-          .dl-button-modern { width: 100%; }
-          .main-title { font-size: 28px; }
           .meta-bar { flex-direction: column; align-items: flex-start; }
           .share-box { width: 100%; border-top: 1px dashed var(--border); padding-top: 15px; }
-          .breadcrumb-title { max-width: 150px; }
+          .download-box-tactical { flex-direction: column; text-align: center; }
+          .related-grid { grid-template-columns: 1fr; }
         }
       `}} />
     </main>

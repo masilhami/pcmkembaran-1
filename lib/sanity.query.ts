@@ -2,8 +2,17 @@ import { client } from "./sanity.client";
 import { groq } from "next-sanity";
 
 /**
+ * Snippet Reusable untuk Image agar mendukung SEO (Alt & Caption)
+ */
+const imageFields = groq`
+  "image": mainImage.asset->url,
+  "imageAlt": mainImage.alt,
+  "imageCaption": mainImage.caption,
+  "flyerImage": flyerImage.asset->url
+`;
+
+/**
  * 1. Homepage: Ambil SEMUA postingan terbaru + Jadwal Kajian
- * Menambahkan variabel kontrol tipe & waktu agar klasifikasi di Home akurat.
  */
 export async function getAllPosts() {
   return client.fetch(
@@ -15,7 +24,7 @@ export async function getAllPosts() {
       tanggal,
       "title": coalesce(title, tema), 
       "slug": slug.current,
-      "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
+      ${imageFields},
       "publishedAt": publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0)
@@ -34,7 +43,7 @@ export async function getNewsPosts() {
       _id,
       title,
       "slug": slug.current,
-      "image": mainImage.asset->url,
+      ${imageFields},
       "publishedAt": publishedAt,
       "category": "Berita",
       "views": coalesce(views, 0)
@@ -53,7 +62,7 @@ export async function getArticlePosts() {
       _id,
       title,
       "slug": slug.current,
-      "image": mainImage.asset->url,
+      ${imageFields},
       "publishedAt": publishedAt,
       "category": "Artikel",
       "views": coalesce(views, 0)
@@ -65,7 +74,6 @@ export async function getArticlePosts() {
 
 /**
  * 4. Fungsi Dinamis Rubrik (Halaman Kategori)
- * Menambahkan kontrol tipe agar listing kategori Jadwal Kajian tampil profesional.
  */
 export async function getPostsByCategory(categoryName: string) {
   return client.fetch(
@@ -78,13 +86,13 @@ export async function getPostsByCategory(categoryName: string) {
       pekan,
       "title": coalesce(title, tema),
       "slug": slug.current,
-      "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
+      ${imageFields},
       "publishedAt": publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0),
       "downloadLink": downloadLink,
       "fileSize": fileSize,
-      "excerpt": array::join(string::split(pt::text(body), "")[0...150], "") + "..."
+      "excerpt": array::join(string::split(pt::text(body), "")[0...200], "") + "..."
     }`,
     { categoryName },
     { cache: 'no-store' }
@@ -92,8 +100,7 @@ export async function getPostsByCategory(categoryName: string) {
 }
 
 /**
- * 5. Detail Konten (Halaman Baca) - KRITIKAL!
- * Diperbarui untuk mencegah error "undefined" pada hari/tanggal.
+ * 5. Detail Konten (Halaman Baca) - DUKUNGAN SEO & TABLIGH AKBAR
  */
 export async function getSinglePost(slug: string) {
   if (!slug) return null;
@@ -107,13 +114,30 @@ export async function getSinglePost(slug: string) {
       pekan,       
       "title": coalesce(title, tema),
       "slug": slug.current,
-      "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
+      ${imageFields},
       publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0),
+      
+      // Fields khusus Unduhan
       "downloadLink": downloadLink,
       "fileSize": fileSize,
-      body,
+      
+      // Fields khusus Tabligh Akbar
+      eventTheme,
+      eventDate,
+      eventLocation,
+      eventSpeaker,
+
+      // Body Content (Mendukung Alt/Caption di dalam Portable Text)
+      body[] {
+        ...,
+        _type == "image" => {
+          ...,
+          asset->
+        }
+      },
+      
       "author": author->name,
       ustadz,
       waktu,
@@ -135,7 +159,7 @@ export async function getKhutbahPosts() {
       _id,
       title,
       "slug": slug.current,
-      "image": mainImage.asset->url,
+      ${imageFields},
       "publishedAt": publishedAt,
       "category": "Khutbah",
       "views": coalesce(views, 0)
@@ -157,7 +181,7 @@ export async function getRelatedPosts(category: string, currentSlug: string) {
       tanggal,
       "title": coalesce(title, tema),
       "slug": slug.current,
-      "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
+      ${imageFields},
       "publishedAt": publishedAt,
       "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
       "views": coalesce(views, 0)
@@ -199,7 +223,7 @@ export async function getSearchedPosts(searchQuery: string) {
         tanggal,
         "title": coalesce(title, tema),
         "slug": slug.current,
-        "image": coalesce(flyerImage.asset->url, mainImage.asset->url),
+        ${imageFields},
         "category": coalesce(category, categories[0]->title, "Jadwal Kajian"),
         "publishedAt": publishedAt,
         "views": coalesce(views, 0)
@@ -214,7 +238,7 @@ export async function getSearchedPosts(searchQuery: string) {
 }
 
 /**
- * 10. Jadwal Kajian Hari Ini (Khusus Flyer & Dashboard Dakwah)
+ * 10. Jadwal Kajian Hari Ini
  */
 export async function getKajianHariIni(hari: string, tanggal: string, pekanKe: string) {
   return client.fetch(

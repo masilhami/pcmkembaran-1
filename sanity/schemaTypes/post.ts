@@ -1,3 +1,4 @@
+// schemas/post.ts
 import { defineType, defineField } from 'sanity'
 import { DocumentIcon } from '@sanity/icons'
 
@@ -9,7 +10,7 @@ export default defineType({
   groups: [
     { name: 'konten', title: 'Isi Konten' },
     { name: 'unduhan', title: 'Sektor Unduhan' },
-    { name: 'kajian', title: 'Info Tabligh Akbar' }, // Group khusus acara
+    { name: 'kajian', title: 'Info Tabligh Akbar' },
     { name: 'meta', title: 'Meta & Statistik' },
   ],
   fields: [
@@ -56,14 +57,13 @@ export default defineType({
     }),
 
     /* ========================================================================
-       SECTION: TABLIGH AKBAR FIELDS (HANYA MUNCUL JIKA KATEGORI TERPILIH)
+       SECTION: TABLIGH AKBAR FIELDS
        ======================================================================== */
     defineField({
       name: 'eventTheme',
       title: 'Tema Tabligh Akbar',
       type: 'string',
       group: 'kajian',
-      description: 'Tema utama acara (Contoh: Meneladani Akhlak Rasulullah di Era Digital)',
       hidden: ({ document }) => document?.category !== 'tabligh-akbar',
     }),
     defineField({
@@ -71,7 +71,6 @@ export default defineType({
       title: 'Tanggal & Waktu Acara',
       type: 'datetime',
       group: 'kajian',
-      description: 'Tentukan kapan acara akan dilaksanakan.',
       hidden: ({ document }) => document?.category !== 'tabligh-akbar',
     }),
     defineField({
@@ -79,7 +78,6 @@ export default defineType({
       title: 'Lokasi Spesifik',
       type: 'string',
       group: 'kajian',
-      placeholder: 'Contoh: Halaman Masjid Al-Falah / Aula PCM',
       hidden: ({ document }) => document?.category !== 'tabligh-akbar',
     }),
     defineField({
@@ -87,7 +85,6 @@ export default defineType({
       title: 'Ustadz / Pembicara Utama',
       type: 'string',
       group: 'kajian',
-      placeholder: 'Contoh: Ustadz Dr. Adi Hidayat, Lc., M.A.',
       hidden: ({ document }) => document?.category !== 'tabligh-akbar',
     }),
 
@@ -107,14 +104,30 @@ export default defineType({
       hidden: ({ document }) => document?.category !== 'unduhan',
     }),
 
-    /* --- MEDIA & META --- */
+    /* --- MEDIA UTAMA (DENGAN ALT & CAPTION) --- */
     defineField({
       name: 'mainImage',
       title: 'Gambar Utama / Poster',
       type: 'image',
       group: 'konten',
       options: { hotspot: true },
+      fields: [
+        {
+          name: 'alt',
+          type: 'string',
+          title: 'Alt Text (SEO)',
+          description: 'Deskripsikan isi gambar untuk mesin pencari Google.',
+          validation: (Rule) => Rule.required(),
+        },
+        {
+          name: 'caption',
+          type: 'string',
+          title: 'Caption',
+          description: 'Teks yang akan muncul di bawah gambar pada halaman web.',
+        }
+      ]
     }),
+
     defineField({
       name: 'publishedAt',
       title: 'Tanggal Posting',
@@ -130,7 +143,7 @@ export default defineType({
       initialValue: 0,
     }),
 
-    /* --- EDITOR KONTEN --- */
+    /* --- EDITOR KONTEN (GAMBAR DI DALAM BODY JUGA DIBERI ALT & CAPTION) --- */
     defineField({
       name: 'body',
       title: 'Deskripsi / Detail Acara',
@@ -138,7 +151,23 @@ export default defineType({
       group: 'konten',
       of: [
         { type: 'block' },
-        { type: 'image', options: { hotspot: true } },
+        { 
+          type: 'image', 
+          options: { hotspot: true },
+          fields: [
+            {
+              name: 'alt',
+              type: 'string',
+              title: 'Alt Text (SEO)',
+              validation: (Rule) => Rule.required(),
+            },
+            {
+              name: 'caption',
+              type: 'string',
+              title: 'Caption Gambar',
+            }
+          ]
+        },
         { type: 'youtube' } 
       ],
     }),
