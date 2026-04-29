@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Amiri, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import LayoutWrapper from "@/components/LayoutWrapper";
 import InstallationTracker from "@/components/InstallationTracker"; 
 
-// 1. KONFIGURASI FONT (Mendukung bobot 400 hingga 800)
+// 1. KONFIGURASI FONT LATIN (Plus Jakarta Sans)
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   display: "swap",
@@ -12,16 +12,29 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-// 2. VIEWPORT: Optimal untuk Mobile & PWA
+// 2. KONFIGURASI FONT ARAB (Amiri & Noto Sans Arabic)
+const amiri = Amiri({
+  subsets: ["arabic"],
+  weight: ["400", "700"],
+  variable: "--font-amiri",
+});
+
+const notoArabic = Noto_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700", "900"],
+  variable: "--font-noto-arabic",
+});
+
+// 3. VIEWPORT: Optimal untuk Mobile & PWA
 export const viewport: Viewport = {
   themeColor: "#004a8e",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5, // Izinkan zoom untuk aksesibilitas
+  maximumScale: 5,
   userScalable: true,
 };
 
-// 3. METADATA: Senjata Utama SEO & Social Media
+// 4. METADATA: Senjata Utama SEO & Social Media
 export const metadata: Metadata = {
   metadataBase: new URL('https://pcmkembaran.com'), 
   title: {
@@ -75,7 +88,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   
-  // 4. DATA TERSTRUKTUR (JSON-LD): Identitas Organisasi untuk Google Search
+  // 5. DATA TERSTRUKTUR (JSON-LD): Identitas Organisasi
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -96,7 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     ],
     "contactPoint": {
       "@type": "ContactPoint",
-      "telephone": "+62-857-4102-5663", // Sony Martin - Kontak Resmi sesuai catatan
+      "telephone": "+62-857-4102-5663", // Sony Martin - Kontak Resmi
       "contactType": "customer service",
       "areaServed": "ID",
       "availableLanguage": "Indonesian"
@@ -104,9 +117,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <html lang="id" className={plusJakartaSans.variable}>
+    <html 
+      lang="id" 
+      className={`${plusJakartaSans.variable} ${amiri.variable} ${notoArabic.variable}`}
+    >
       <head>
-        {/* Injeksi JSON-LD agar muncul di Rich Snippets Google */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -115,7 +130,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body 
         className={`${plusJakartaSans.className} antialiased`} 
         style={{ 
-          backgroundColor: '#f8fafc', // Warna background bersih ala globals.css kita
+          backgroundColor: '#f8fafc',
           color: '#0f172a',
           margin: 0,
           minHeight: '100vh',
@@ -129,7 +144,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
         </LayoutWrapper>
         
-        {/* Tracker Instalasi PWA (Diletakkan di akhir agar tidak menghalangi LCP) */}
+        {/* Tracker Instalasi PWA */}
         <InstallationTracker /> 
       </body>
     </html>

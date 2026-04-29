@@ -14,6 +14,10 @@
   /* Shadows */
   --shadow-tactical: 0 0 25px rgba(56, 189, 248, 0.4);
   --shadow-card: 0 10px 30px rgba(0, 74, 142, 0.05);
+
+  /* Font Tokens untuk Tailwind Class */
+  --font-amiri: var(--font-amiri);
+  --font-noto-arabic: var(--font-noto-arabic);
 }
 
 /* ================= BASE STYLES ================= */
@@ -40,6 +44,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Support untuk Teks Arab Global */
+  [lang="ar"] {
+    font-family: var(--font-amiri), serif;
+    direction: rtl;
+  }
+
   a {
     color: inherit;
     text-decoration: none;
@@ -49,6 +59,23 @@
 
 /* ================= COMPONENTS & UTILITIES ================= */
 @layer components {
+
+  /* --- TRADITIONAL ARABIC TYPOGRAPHY (NEW) --- */
+  .arabic-traditional {
+    font-family: var(--font-amiri), serif !important;
+    direction: rtl;
+    text-align: right;
+    line-height: 2.3 !important; /* Memberi ruang untuk harakat */
+    font-size: 1.5em;            /* Scale up karena font Arab cenderung terlihat kecil */
+    word-spacing: 2px;
+    font-weight: 400;
+  }
+
+  .arabic-modern {
+    font-family: var(--font-noto-arabic), sans-serif !important;
+    direction: rtl;
+    line-height: 1.8;
+  }
 
   /* --- NAVIGATION (Lapis 3) --- */
   .main-nav {
@@ -107,7 +134,6 @@
     box-shadow: inset 0 0 50px rgba(0, 0, 0, 1);
   }
 
-  /* Grid Overlay ala HUD Militer */
   .tactical-grid {
     background-image: 
       linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
@@ -117,12 +143,10 @@
     pointer-events: none;
   }
 
-  /* Efek Neon Glow untuk Garis Batas Wilayah */
   .tactical-glow {
     filter: drop-shadow(0 0 8px #38bdf8);
   }
 
-  /* HUD Scanlines High-Detail (Double Layer) */
   .tactical-map-container::before {
     content: "";
     position: absolute;
@@ -149,14 +173,14 @@
     opacity: 0.4;
   }
 
-  /* --- LEAFLET TACTICAL TOOLTIP (DIBESARKAN & DIPERTARJAM) --- */
+  /* --- LEAFLET TACTICAL TOOLTIP --- */
   .leaflet-tooltip-tactical {
     background: rgba(15, 23, 42, 0.95) !important;
     border: 2px solid #38bdf8 !important;
     color: #38bdf8 !important;
     font-family: 'monospace' !important;
     font-weight: 900 !important;
-    font-size: 13px !important; /* DIBESARKAN */
+    font-size: 13px !important;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
@@ -165,7 +189,6 @@
     white-space: nowrap;
   }
 
-  /* Perbaikan Panah Tooltip */
   .leaflet-tooltip-top:before, 
   .leaflet-tooltip-bottom:before, 
   .leaflet-tooltip-left:before, 
@@ -176,34 +199,11 @@
     border-right-color: #38bdf8 !important;
   }
 
-  /* --- HUD TEXT (DIBESARKAN) --- */
   .tactical-hud-text {
     font-size: 14px !important;
     line-height: 1.8;
     text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
     font-family: 'monospace';
-  }
-
-  /* --- ANIMATIONS --- */
-  @keyframes radar-pulse {
-    0% { transform: scale(1); opacity: 0.6; }
-    100% { transform: scale(2.5); opacity: 0; }
-  }
-
-  @keyframes ping-signal {
-    0% { transform: scale(0.5); opacity: 1; }
-    100% { transform: scale(2.5); opacity: 0; }
-  }
-
-  .radar-pulse-ring {
-    animation: radar-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-  }
-
-  .ping-signal {
-    background: var(--abah-gold);
-    border-radius: 50%;
-    animation: ping-signal 1.5s ease-out infinite;
-    position: absolute;
   }
 
   /* --- BENTO CARD STYLING --- */
@@ -244,4 +244,5 @@
   .bento-card { padding: 1.5rem; border-radius: 1.5rem; }
   .tactical-grid { background-size: 20px 20px; }
   .leaflet-tooltip-tactical { font-size: 11px !important; padding: 3px 8px !important; }
+  .arabic-traditional { font-size: 1.25em; line-height: 2.1 !important; }
 }
