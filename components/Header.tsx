@@ -53,7 +53,6 @@ export default function Header() {
     { name: "Unduhan", slug: "unduhan" },
   ];
 
-  // TAMBAHKAN MENU KAJIAN HARI INI DI BARIS TERAKHIR
   const lapis4Menus = [
     { name: "Profile", slug: "profile" },
     { name: "Struktur Pimpinan", slug: "pimpinan" },
@@ -63,7 +62,7 @@ export default function Header() {
     { name: "Download", slug: "download" },
     { name: "Gallery", slug: "galeri" },
     { name: "Kontak", slug: "kontak" },
-    { name: "Kajian Hari Ini", slug: "kajian-hari-ini" }, // <-- AMUNISI BARU
+    { name: "Kajian Hari Ini", slug: "kajian-hari-ini" },
   ];
 
   const orgMenus = [
@@ -87,33 +86,57 @@ export default function Header() {
         .lapis4-link { color: #444 !important; text-decoration: none; font-weight: 700; font-size: 11px; padding: 10px 15px; display: flex; align-items: center; white-space: nowrap; transition: 0.2s; }
         .lapis4-link:hover { color: var(--abah-blue) !important; }
         
-        /* 🔴 ANIMASI SINYAL KELIP MERAH */
         @keyframes pulse-red {
           0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
           70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
           100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
         .signal-indicator {
-          width: 8px;
-          height: 8px;
-          background-color: #ef4444;
-          border-radius: 50%;
-          margin-right: 8px;
-          display: inline-block;
-          animation: pulse-red 2s infinite;
+          width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%;
+          margin-right: 8px; display: inline-block; animation: pulse-red 2s infinite;
         }
 
-        @media (max-width: 992px) { .top-center-search { display: none !important; } }
+        /* 🛡️ BANNER EXPANSION - SLIM MODE */
+        .header-banner-right { 
+          display: flex; 
+          justify-content: flex-end;
+          max-width: 900px; 
+          width: 100%;
+          height: 115px; /* Disesuaikan agar header tidak terlalu tinggi */
+          transition: 0.3s; 
+          flex: 1;
+        }
+        
+        .logo-section-left {
+          flex: 0 0 auto; 
+          margin-right: 30px;
+        }
+
+        /* 📏 TAGLINE SYMMETRY */
+        .tagline-text {
+          font-size: 13.8px; 
+          color: #666; 
+          font-weight: 700; 
+          text-transform: uppercase;
+          display: block;
+          text-align: justify;
+          text-align-last: justify;
+          width: 100%;
+          margin-top: 5px;
+        }
+
+        /* 📱 MOBILE FIX */
+        @media (max-width: 992px) { 
+          .top-center-search { display: none !important; } 
+          .header-banner-right { display: none !important; }
+          .logo-text-box h1 { font-size: 24px !important; letter-spacing: -1px !important; }
+          .tagline-text { font-size: 9px !important; margin-top: 2px !important; }
+          .logo-section-left { margin-right: 0; width: 100%; }
+        }
         
         .auth-btn {
-          border: none;
-          cursor: pointer;
-          padding: 6px 15px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          transition: 0.3s;
+          border: none; cursor: pointer; padding: 6px 15px; border-radius: 20px;
+          font-size: 11px; font-weight: 800; text-transform: uppercase; transition: 0.3s;
         }
       `}} />
 
@@ -169,22 +192,39 @@ export default function Header() {
       </div>
       {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1900 }}></div>}
 
-      {/* LAPIS 2: LOGO */}
-      <div className="logo-section" style={{ backgroundColor: '#fff', padding: '20px 0' }}>
-        <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
-          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <Image src="/logo-md.png" alt="Logo" width={55} height={55} style={{ borderRadius: '50%' }} />
-            <div className="logo-text-box">
-              <h1 style={{ color: 'var(--abah-blue)', margin: 0, fontSize: '32px', fontWeight: '900', fontStyle: 'italic', letterSpacing: '-1.5px' }}>
-                PCM <span style={{ color: 'var(--abah-gold)' }}>KEMBARAN</span>
-              </h1>
-              <p style={{ fontSize: '13px', color: '#666', fontWeight: '500', textTransform: 'uppercase' }}>Dakwah Berkemajuan, Mencerahkan Kehidupan</p>
-            </div>
-          </Link>
+      {/* LAPIS 2: LOGO & PHOTO BANNER - SYNC WIDTH 1200px & PADDING SLIM */}
+      <div className="logo-section" style={{ backgroundColor: '#fff', padding: '5px 0' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
+          
+          <div className="logo-section-left">
+            <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '15px' }}>
+              <Image src="/logo-md.png" alt="Logo" width={55} height={55} style={{ borderRadius: '50%' }} priority />
+              <div className="logo-text-box" style={{ display: 'flex', flexDirection: 'column', width: 'fit-content' }}>
+                <h1 style={{ color: 'var(--abah-blue)', margin: 0, fontSize: '42px', fontWeight: '900', fontStyle: 'italic', letterSpacing: '-1.5px', lineHeight: 0.9 }}>
+                  PCM <span style={{ color: 'var(--abah-gold)' }}>KEMBARAN</span>
+                </h1>
+                <span className="tagline-text">
+                  Dakwah Berkemajuan, Mencerahkan Kehidupan
+                </span>
+              </div>
+            </Link>
+          </div>
+
+          <div className="header-banner-right">
+             <Image 
+               src="/images/pcm.png" 
+               alt="Pimpinan PCM Kembaran" 
+               width={1200} 
+               height={115} 
+               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+               priority
+             />
+          </div>
+
         </div>
       </div>
 
-      {/* STICKY CONTAINER FOR LAPIS 3 & 4 */}
+      {/* LAPIS 3 & 4: NAVIGATION - SYNC WIDTH 1200px */}
       <div className="sticky-nav-group" style={{ position: 'sticky', top: 0, zIndex: 1000, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
         <nav className="main-nav" style={{ backgroundColor: 'var(--abah-blue)', borderBottom: '2px solid var(--abah-gold)' }}>
           <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
