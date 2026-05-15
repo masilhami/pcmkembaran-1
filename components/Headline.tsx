@@ -3,8 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 
 /**
- * Headline Component - PCM Kembaran Version
- * Fokus: Typography Impact & LCP Optimization
+ * Headline Component - PCM Kembaran (Mobile Bottom-Gravity Edition)
+ * Kalibrasi: Mobile height diperpendek, teks di dasar, space atas bersih.
  */
 export default async function Headline() {
   const allNews = await getNewsPosts();
@@ -14,123 +14,67 @@ export default async function Headline() {
   if (!mainNews) return null;
 
   return (
-    <section className="headline-wrapper" style={{ 
-      position: 'relative', 
-      width: '100%', 
-      borderRadius: '16px', 
-      overflow: 'hidden', 
-      boxShadow: '0 20px 40px rgba(0,74,142,0.15)',
-      backgroundColor: '#004a8e',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <section className="headline-wrapper">
       
-      {/* 1. BACKGROUND IMAGE (LCP) */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+      {/* 1. BACKGROUND IMAGE */}
+      <div className="headline-bg">
         <Image 
           src={mainNews.image || "/logo-md.png"} 
           alt={mainNews.title} 
           fill
           priority 
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1200px"
+          sizes="(max-width: 1200px) 100vw, 1200px"
           style={{ objectFit: 'cover' }}
         />
+        <div className="dark-shroud"></div>
       </div>
         
-      {/* 2. OVERLAY CONTENT */}
-      <div className="headline-overlay" style={{ 
-        position: 'relative',
-        zIndex: 1,
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-end',
-        background: 'linear-gradient(to top, rgba(0,74,142,1) 0%, rgba(0,74,142,0.75) 50%, transparent 100%)',
-        color: '#fff'
-      }}>
+      {/* 2. CONTENT AREA */}
+      <div className="headline-content">
           
-        {/* KONTEN UTAMA */}
-        <div style={{ marginBottom: '25px' }}>
-          <span style={{
-            background: '#ffc107',
-            color: '#004a8e',
-            padding: '4px 12px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: '800',
-            textTransform: 'uppercase',
-            letterSpacing: '1px',
-            marginBottom: '15px',
-            display: 'inline-block'
-          }}>
-            Berita Utama
+        {/* KONTEN BERITA UTAMA */}
+        <div className="main-content-block">
+          <span className="category-badge-emerald">
+            {mainNews.category || "Berita"}
           </span>
 
           <Link 
             href={`/${mainNews.category?.toLowerCase() || 'berita'}/${mainNews.slug}`} 
-            style={{ textDecoration: 'none', color: '#fff' }}
+            className="main-title-link"
           >
-            {/* Judul Utama yang sudah dibesarkan */}
-            <h2 className="headline-title" style={{ 
-              fontWeight: '900', 
-              margin: '10px 0 15px 0', 
-              lineHeight: '1.05', 
-              textShadow: '0 2px 20px rgba(0,0,0,0.5)',
-              cursor: 'pointer',
-              letterSpacing: '-1.5px'
-            }}>
+            <h2 className="headline-elegant-title">
               {mainNews.title}
             </h2>
           </Link>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', fontWeight: '600', opacity: 0.9 }}>
-            <span style={{ color: '#ffc107' }}>PCM KEMBARAN</span>
-            <span style={{ opacity: 0.5 }}>•</span>
-            <span suppressHydrationWarning>
-              {new Date(mainNews.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+          <div className="meta-info">
+            <span className="meta-author">Media PCM Kembaran</span>
+            <span className="meta-dot">•</span>
+            <span suppressHydrationWarning className="meta-date">
+              {new Date(mainNews.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           </div>
         </div>
 
-        {/* AREA BERITA TERKAIT */}
+        {/* 3. RELATED NEWS (COMPACT LIST) */}
         {relatedNews?.length > 0 && (
-          <div className="headline-related" style={{ 
-            marginTop: '25px', 
-            paddingTop: '25px', 
-            borderTop: '1px solid rgba(255,255,255,0.2)', 
-            display: 'grid', 
-            gap: '40px' 
-          }}>
+          <div className="related-footer-grid">
             {relatedNews.map((related: any) => (
               <Link 
                 key={related._id} 
                 href={`/${related.category?.toLowerCase() || 'berita'}/${related.slug}`} 
-                style={{ textDecoration: 'none', color: '#fff' }}
+                className="related-mini-card"
               >
-                <div className="related-hover">
-                  <span style={{ 
-                    color: '#ffc107', 
-                    fontSize: '10px', 
-                    fontWeight: '800', 
-                    display: 'block', 
-                    marginBottom: '4px', 
-                    textTransform: 'uppercase'
-                  }}>
-                    {related.category}
-                  </span>
-                  <p style={{ 
-                    fontSize: '15px', 
-                    margin: 0, 
-                    fontWeight: '700', 
-                    lineHeight: '1.4', 
-                    display: '-webkit-box', 
-                    WebkitLineClamp: 2, 
-                    WebkitBoxOrient: 'vertical', 
-                    overflow: 'hidden' 
-                  }}>
-                    {related.title}
-                  </p>
+                <div className="mini-thumb">
+                  <Image 
+                    src={related.image || "/logo-md.png"} 
+                    alt={related.title} 
+                    fill
+                    sizes="120px"
+                    style={{ objectFit: 'cover' }}
+                  />
                 </div>
+                <p className="mini-title-text">{related.title}</p>
               </Link>
             ))}
           </div>
@@ -138,24 +82,145 @@ export default async function Headline() {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .headline-wrapper { height: 520px; }
-        .headline-overlay { padding: 80px 40px 40px 40px; }
-        .headline-title { fontSize: 48px; transition: color 0.3s; }
-        .headline-title:hover { color: #ffc107 !important; }
-        .headline-related { grid-template-columns: 1fr 1fr; }
-        .related-hover { transition: 0.3s; }
-        .related-hover:hover { transform: translateX(5px); color: #ffc107; }
+        .headline-wrapper {
+          position: relative;
+          width: 100%;
+          height: 500px;
+          border-radius: 28px;
+          overflow: hidden;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+          background: #001a33;
+        }
 
+        .headline-bg { position: absolute; inset: 0; z-index: 0; }
+        
+        /* Shroud: Fokus gelap hanya di 40% area bawah */
+        .dark-shroud { 
+          position: absolute; inset: 0; 
+          background: linear-gradient(to top, rgba(0,15,30,1) 0%, rgba(0,15,30,0.8) 35%, transparent 65%);
+        }
+
+        .headline-content {
+          position: relative;
+          z-index: 2;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end; /* Paksa konten ke dasar */
+          padding: 40px 45px;
+          color: #fff;
+        }
+
+        .category-badge-emerald {
+          background: #10b981;
+          color: #fff;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          display: inline-block;
+          margin-bottom: 12px;
+        }
+
+        .main-title-link { text-decoration: none; color: inherit; }
+        .headline-elegant-title {
+          font-size: clamp(22px, 3.5vw, 36px);
+          font-weight: 800;
+          line-height: 1.2;
+          margin-bottom: 10px;
+          letter-spacing: -0.8px;
+          text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+          max-width: 85%;
+        }
+
+        .meta-info {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          margin-bottom: 25px;
+          opacity: 0.9;
+        }
+        .meta-author { color: #fbbf24; }
+
+        .related-footer-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 30px;
+          padding-top: 20px;
+          border-top: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .related-mini-card {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-decoration: none;
+          color: #fff;
+        }
+
+        .mini-thumb {
+          position: relative;
+          width: 80px;
+          height: 50px;
+          border-radius: 8px;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+
+        .mini-title-text {
+          font-size: 13.5px;
+          font-weight: 700;
+          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        /* 📱 MOBILE OPTIMIZATION (DARUT TAQWA STYLE FIX) */
         @media (max-width: 768px) {
-          .headline-wrapper { height: auto !important; min-height: 500px; }
-          .headline-overlay { padding: 60px 20px 30px 20px !important; }
-          .headline-title { fontSize: 32px !important; }
-          .headline-related { 
-            grid-template-columns: 1fr !important; 
-            gap: 20px !important;
-            padding-top: 20px !important;
+          .headline-wrapper { 
+            height: 420px !important; /* Tinggi dipangkas agar tidak kepanjangan */
+            border-radius: 20px;
           }
-          .related-hover p { fontSize: 14px !important; }
+          
+          .dark-shroud {
+             /* Gradien lebih rendah agar wajah di foto (area atas) bersih */
+             background: linear-gradient(to top, rgba(0,10,20,1) 0%, rgba(0,10,20,0.85) 45%, transparent 80%);
+          }
+
+          .headline-content { 
+            padding: 20px 16px; /* Padding rapat ke pinggir */
+            justify-content: flex-end; 
+          }
+
+          .headline-elegant-title { 
+            font-size: 19px; 
+            margin-bottom: 6px;
+            max-width: 100%;
+            line-height: 1.25;
+          }
+
+          .meta-info { 
+            margin-bottom: 12px;
+            font-size: 11px;
+          }
+
+          .related-footer-grid { 
+            grid-template-columns: 1fr; 
+            gap: 8px; 
+            padding-top: 10px;
+          }
+
+          .mini-thumb { width: 55px; height: 35px; border-radius: 6px; }
+          .mini-title-text { 
+            font-size: 12px; 
+            -webkit-line-clamp: 1; /* Hemat tempat di mobile */
+          }
         }
       `}} />
     </section>
