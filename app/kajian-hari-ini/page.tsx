@@ -59,6 +59,7 @@ export default function KajianHariIniPage() {
   }, []);
 
   const handleDownload = async (imageUrl: string, tema: string) => {
+    if (!imageUrl) return;
     try {
       const response = await fetch(imageUrl);
       const blob = await response.blob();
@@ -83,7 +84,6 @@ export default function KajianHariIniPage() {
 
   return (
     <main className="min-h-screen bg-[#fcfdfe] font-sans text-slate-900 pb-24">
-      
       <header className="bg-white border-b border-slate-100 py-16 md:py-24 mb-16">
         <div className="max-w-6xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-3 px-6 py-2 bg-blue-50 border border-blue-100 rounded-full text-[10px] font-black tracking-[0.2em] uppercase text-[#004a8e] mb-8">
@@ -100,7 +100,6 @@ export default function KajianHariIniPage() {
       </header>
 
       <div className="max-w-6xl mx-auto px-6">
-        
         <section className="mb-32">
           {kajianList.length === 0 ? (
             <div className="bg-white p-20 rounded-[2rem] border-2 border-dashed border-slate-100 text-center shadow-inner">
@@ -115,7 +114,6 @@ export default function KajianHariIniPage() {
                 const isIncidental = kajian.tipe === 'insidental';
                 return (
                   <div key={kajian._id} className="group bg-white rounded-[2.5rem] border border-slate-100 flex flex-col lg:flex-row p-6 md:p-8 gap-8 md:gap-12 shadow-sm hover:shadow-2xl transition-all duration-500 relative overflow-hidden">
-                    
                     <div className="w-full lg:w-[220px] flex flex-col gap-5 shrink-0">
                        <motion.div 
                          whileHover={{ scale: 1.03 }}
@@ -171,6 +169,7 @@ export default function KajianHariIniPage() {
                              </div>
                           </div>
                           <div className="flex gap-3">
+                             {/* 🛡️ FIX: Link sekarang memanggil kajian.slug yang sudah ditarik dari query */}
                              <Link href={`/jadwal-kajian/${kajian.slug}`} className="flex-1 flex items-center justify-center gap-2 bg-[#004a8e] text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl">
                                 Detail <ArrowRight size={14} />
                              </Link>
@@ -204,7 +203,6 @@ export default function KajianHariIniPage() {
                       <CalendarDays size={24} />
                    </div>
                    <div className="min-w-0">
-                      {/* FIX: BARIS 205 - STRING SUDAH TERTUTUP SEMPURNA */}
                       <h3 className="font-black text-slate-800 group-hover:text-[#004a8e] transition-colors truncate uppercase text-sm tracking-tight">{item.title}</h3>
                       <div className="flex items-center gap-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                          <span className="flex items-center gap-1"><Info size={10} /> Lihat Info</span>
