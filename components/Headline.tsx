@@ -3,8 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 
 /**
- * Headline Component - PCM Kembaran (Mobile Bottom-Gravity Edition)
- * Kalibrasi: Mobile height diperpendek, teks di dasar, space atas bersih.
+ * Headline Component - PCM Kembaran (Blue Identity Edition)
+ * Kalibrasi: Gradasi Biru PCM, Mobile friendly, teks di dasar (bottom).
  */
 export default async function Headline() {
   const allNews = await getNewsPosts();
@@ -26,7 +26,8 @@ export default async function Headline() {
           sizes="(max-width: 1200px) 100vw, 1200px"
           style={{ objectFit: 'cover' }}
         />
-        <div className="dark-shroud"></div>
+        {/* 🛡️ GRADASI BIRU PCM PROTECTOR */}
+        <div className="blue-shroud"></div>
       </div>
         
       {/* 2. CONTENT AREA */}
@@ -89,15 +90,19 @@ export default async function Headline() {
           border-radius: 28px;
           overflow: hidden;
           box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-          background: #001a33;
+          background: #004a8e; /* Fallback Biru PCM */
         }
 
         .headline-bg { position: absolute; inset: 0; z-index: 0; }
         
-        /* Shroud: Fokus gelap hanya di 40% area bawah */
-        .dark-shroud { 
+        /* 🛡️ BLUE SHROUD: Menggunakan warna #004a8e (Biru PCM) */
+        .blue-shroud { 
           position: absolute; inset: 0; 
-          background: linear-gradient(to top, rgba(0,15,30,1) 0%, rgba(0,15,30,0.8) 35%, transparent 65%);
+          background: linear-gradient(to top, 
+            rgba(0, 74, 142, 1) 0%, 
+            rgba(0, 74, 142, 0.8) 35%, 
+            transparent 75%
+          );
         }
 
         .headline-content {
@@ -106,7 +111,7 @@ export default async function Headline() {
           height: 100%;
           display: flex;
           flex-direction: column;
-          justify-content: flex-end; /* Paksa konten ke dasar */
+          justify-content: flex-end; /* Paksa teks di dasar */
           padding: 40px 45px;
           color: #fff;
         }
@@ -131,9 +136,10 @@ export default async function Headline() {
           line-height: 1.2;
           margin-bottom: 10px;
           letter-spacing: -0.8px;
-          text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+          text-shadow: 0 2px 10px rgba(0,0,0,0.3);
           max-width: 85%;
         }
+        .headline-elegant-title:hover { color: #ffc107; }
 
         .meta-info {
           display: flex;
@@ -151,7 +157,7 @@ export default async function Headline() {
           grid-template-columns: 1fr 1fr;
           gap: 30px;
           padding-top: 20px;
-          border-top: 1px solid rgba(255,255,255,0.12);
+          border-top: 1px solid rgba(255,255,255,0.2);
         }
 
         .related-mini-card {
@@ -169,6 +175,7 @@ export default async function Headline() {
           border-radius: 8px;
           overflow: hidden;
           flex-shrink: 0;
+          border: 1px solid rgba(255,255,255,0.1);
         }
 
         .mini-title-text {
@@ -181,20 +188,24 @@ export default async function Headline() {
           overflow: hidden;
         }
 
-        /* 📱 MOBILE OPTIMIZATION (DARUT TAQWA STYLE FIX) */
+        /* 📱 MOBILE OPTIMIZATION (BLUE EDITION) */
         @media (max-width: 768px) {
           .headline-wrapper { 
-            height: 420px !important; /* Tinggi dipangkas agar tidak kepanjangan */
+            height: 420px !important; 
             border-radius: 20px;
           }
           
-          .dark-shroud {
-             /* Gradien lebih rendah agar wajah di foto (area atas) bersih */
-             background: linear-gradient(to top, rgba(0,10,20,1) 0%, rgba(0,10,20,0.85) 45%, transparent 80%);
+          .blue-shroud {
+             /* Gradien Biru PCM di mobile */
+             background: linear-gradient(to top, 
+               rgba(0, 74, 142, 1) 0%, 
+               rgba(0, 74, 142, 0.9) 45%, 
+               transparent 85%
+             );
           }
 
           .headline-content { 
-            padding: 20px 16px; /* Padding rapat ke pinggir */
+            padding: 20px 16px; 
             justify-content: flex-end; 
           }
 
@@ -202,13 +213,9 @@ export default async function Headline() {
             font-size: 19px; 
             margin-bottom: 6px;
             max-width: 100%;
-            line-height: 1.25;
           }
 
-          .meta-info { 
-            margin-bottom: 12px;
-            font-size: 11px;
-          }
+          .meta-info { margin-bottom: 12px; font-size: 11px; }
 
           .related-footer-grid { 
             grid-template-columns: 1fr; 
@@ -216,11 +223,8 @@ export default async function Headline() {
             padding-top: 10px;
           }
 
-          .mini-thumb { width: 55px; height: 35px; border-radius: 6px; }
-          .mini-title-text { 
-            font-size: 12px; 
-            -webkit-line-clamp: 1; /* Hemat tempat di mobile */
-          }
+          .mini-thumb { width: 55px; height: 35px; }
+          .mini-title-text { font-size: 12px; -webkit-line-clamp: 1; }
         }
       `}} />
     </section>
