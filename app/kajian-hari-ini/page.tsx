@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { getKajianHariIni, getAllPosts } from '@/lib/sanity.query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Download, Calendar, Clock, MapPin, Share2, ArrowRight, Maximize2, X, CalendarDays, Landmark, CheckCircle2, Info 
+  Download, Calendar, Clock, MapPin, Share2, ArrowRight, 
+  Maximize2, X, CalendarDays, Landmark, CheckCircle2, Info,
+  ChevronRight // 🛡️ FIX: Ikon ini sekarang sudah di-import
 } from 'lucide-react'
 
 export default function KajianHariIniPage() {
@@ -36,6 +38,7 @@ export default function KajianHariIniPage() {
         const todayDate = now.toISOString().split('T')[0];
         const currentWeek = getWeekOfMonth(now);
 
+        // Pastikan query di lib/sanity.query.ts sudah ada field "slug": slug.current
         const dataHariIni = await getKajianHariIni(todayDay, todayDate, currentWeek);
         setKajianList(dataHariIni);
 
@@ -109,7 +112,7 @@ export default function KajianHariIniPage() {
             <div className="grid grid-cols-1 gap-12">
               {kajianList.map((kajian) => {
                 const isIncidental = kajian.tipe === 'insidental';
-                const postSlug = kajian.slug || 'detail'; // 🛡️ FALLBACK SLUG
+                const postSlug = kajian.slug || 'detail';
 
                 return (
                   <div key={kajian._id} className="group bg-white rounded-[2.5rem] border border-slate-100 flex flex-col lg:flex-row p-6 md:p-8 gap-8 md:gap-12 shadow-sm hover:shadow-2xl transition-all duration-500 relative overflow-hidden">
