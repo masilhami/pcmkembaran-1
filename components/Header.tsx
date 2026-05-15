@@ -96,15 +96,23 @@ export default function Header() {
           margin-right: 8px; display: inline-block; animation: pulse-red 2s infinite;
         }
 
-        /* 🛡️ BANNER EXPANSION - SLIM MODE */
+        /* 🛡️ BANNER ULTRA-SLIM & GLOW */
         .header-banner-right { 
           display: flex; 
           justify-content: flex-end;
-          max-width: 900px; 
           width: 100%;
-          height: 115px; /* Disesuaikan agar header tidak terlalu tinggi */
+          height: 110px; /* Diperkecil agar header ramping */
           transition: 0.3s; 
           flex: 1;
+        }
+
+        .header-banner-right img {
+          transition: all 0.4s ease;
+        }
+
+        .header-banner-right:hover img {
+          filter: brightness(1.25) drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
+          transform: scale(1.03);
         }
         
         .logo-section-left {
@@ -112,25 +120,19 @@ export default function Header() {
           margin-right: 30px;
         }
 
-        /* 📏 TAGLINE SYMMETRY */
+        /* 📏 TAGLINE TIGHTENING */
         .tagline-text {
           font-size: 13.8px; 
-          color: #666; 
-          font-weight: 700; 
-          text-transform: uppercase;
-          display: block;
-          text-align: justify;
-          text-align-last: justify;
-          width: 100%;
-          margin-top: 5px;
+          color: #666; font-weight: 700; text-transform: uppercase;
+          display: block; text-align: justify; text-align-last: justify; 
+          width: 100%; margin-top: 2px; /* Lebih mepet ke atas */
         }
 
-        /* 📱 MOBILE FIX */
         @media (max-width: 992px) { 
           .top-center-search { display: none !important; } 
           .header-banner-right { display: none !important; }
-          .logo-text-box h1 { font-size: 24px !important; letter-spacing: -1px !important; }
-          .tagline-text { font-size: 9px !important; margin-top: 2px !important; }
+          .logo-text-box h1 { font-size: 24px !important; line-height: 1 !important; }
+          .tagline-text { font-size: 9px !important; margin-top: 1px !important; }
           .logo-section-left { margin-right: 0; width: 100%; }
         }
         
@@ -141,7 +143,7 @@ export default function Header() {
       `}} />
 
       {/* LAPIS 1: TOPBAR */}
-      <div className="top-bar" style={{ backgroundColor: '#fff', borderBottom: '1px solid #eee', padding: '8px 0' }}>
+      <div className="top-bar" style={{ backgroundColor: '#fff', borderBottom: '1px solid #eee', padding: '6px 0' }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
             <div className="hamburger-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)} style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', zIndex: 1100 }}>
@@ -193,7 +195,7 @@ export default function Header() {
       {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1900 }}></div>}
 
       {/* LAPIS 2: LOGO & PHOTO BANNER - SYNC WIDTH 1200px & PADDING SLIM */}
-      <div className="logo-section" style={{ backgroundColor: '#fff', padding: '5px 0' }}>
+      <div className="logo-section" style={{ backgroundColor: '#fff', padding: '2px 0' }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
           
           <div className="logo-section-left">
@@ -215,7 +217,7 @@ export default function Header() {
                src="/images/pcm.png" 
                alt="Pimpinan PCM Kembaran" 
                width={1200} 
-               height={115} 
+               height={110} 
                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                priority
              />
@@ -224,7 +226,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* LAPIS 3 & 4: NAVIGATION - SYNC WIDTH 1200px */}
+      {/* LAPIS 3 & 4: NAVIGATION */}
       <div className="sticky-nav-group" style={{ position: 'sticky', top: 0, zIndex: 1000, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
         <nav className="main-nav" style={{ backgroundColor: 'var(--abah-blue)', borderBottom: '2px solid var(--abah-gold)' }}>
           <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
