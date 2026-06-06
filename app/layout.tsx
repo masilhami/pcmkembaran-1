@@ -3,6 +3,8 @@ import { Plus_Jakarta_Sans, Amiri, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import LayoutWrapper from "@/components/LayoutWrapper";
 import InstallationTracker from "@/components/InstallationTracker"; 
+import { AudioProvider } from '@/context/AudioContext'
+import BottomPlayer from '@/components/BottomPlayer'
 
 // 1. KONFIGURASI FONT LATIN (Plus Jakarta Sans)
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -25,7 +27,7 @@ const notoArabic = Noto_Sans_Arabic({
   variable: "--font-noto-arabic",
 });
 
-// 3. VIEWPORT: Optimal untuk Mobile & PWA
+// 3. VIEWPORT
 export const viewport: Viewport = {
   themeColor: "#004a8e",
   width: "device-width",
@@ -34,7 +36,7 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-// 4. METADATA: Senjata Utama SEO & Social Media
+// 4. METADATA SEO & SOCIAL MEDIA
 export const metadata: Metadata = {
   metadataBase: new URL('https://pcmkembaran.com'), 
   title: {
@@ -88,7 +90,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   
-  // 5. DATA TERSTRUKTUR (JSON-LD): Identitas Organisasi
+  // JSON-LD structured data
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -109,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     ],
     "contactPoint": {
       "@type": "ContactPoint",
-      "telephone": "+62-857-4102-5663", // Sony Martin - Kontak Resmi
+      "telephone": "+62-857-4102-5663", 
       "contactType": "customer service",
       "areaServed": "ID",
       "availableLanguage": "Indonesian"
@@ -138,14 +140,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           flexDirection: 'column'
         }}
       >
-        <LayoutWrapper>
-          <main style={{ flex: 1 }}>
-            {children}
-          </main>
-        </LayoutWrapper>
-        
-        {/* Tracker Instalasi PWA */}
-        <InstallationTracker /> 
+        {/* AUDIO PROVIDER */}
+        <AudioProvider>
+          
+          {/* PWA INSTALLATION BUTTON: FIX DI ATAS BOTTOMPLAYER */}
+          <div className="fixed top-4 right-4 z-50">
+            <InstallationTracker />
+          </div>
+
+          <LayoutWrapper>
+            <main style={{ flex: 1 }}>
+              {children}
+            </main>
+          </LayoutWrapper>
+          
+          {/* BOTTOM PLAYER */}
+          <BottomPlayer />
+
+        </AudioProvider>
       </body>
     </html>
   );

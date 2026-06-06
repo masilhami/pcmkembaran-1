@@ -28,7 +28,8 @@
     "react-leaflet": "^5.0.0",
     "sanity": "^5.9.0",
     "styled-components": "^6.3.9",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
