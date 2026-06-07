@@ -7,7 +7,7 @@ import { useAudioStore } from '@/store/useAudioStore'
 
 export default function BottomPlayer() {
   const { playlist, currentTrackIndex } = useAudio()
-  const { isMuted, toggleMute } = useAudioStore()
+  const { isPlaying, isMuted, togglePlay } = useAudioStore() // toggleMute dihapus
 
   const track = playlist[currentTrackIndex]
   if (!track) return null
@@ -50,11 +50,11 @@ export default function BottomPlayer() {
           <div className="mt-1 flex items-center gap-2">
             <span
               className={`h-2 w-2 rounded-full ${
-                isMuted ? 'bg-slate-500' : 'bg-red-500 animate-pulse'
+                isPlaying && !isMuted ? 'bg-red-500 animate-pulse' : 'bg-slate-500'
               }`}
             />
             <span className="text-[10px] uppercase tracking-widest text-slate-400">
-              {isMuted ? 'Paused' : 'On Air'}
+              {isPlaying && !isMuted ? 'On Air' : 'Paused'}
             </span>
           </div>
         </div>
@@ -62,23 +62,21 @@ export default function BottomPlayer() {
         {/* ACTION BUTTON */}
         <motion.button
           whileTap={{ scale: 0.92 }}
-          onClick={toggleMute}
+          onClick={togglePlay}   // satu nyawa dengan MainPlayer
           className={`
             relative h-12 w-12 rounded-full
             flex items-center justify-center
             transition-all duration-300
             shadow-[0_0_25px_rgba(34,211,238,0.25)]
-            ${
-              isMuted
-                ? 'bg-slate-700 hover:bg-slate-600'
-                : 'bg-gradient-to-br from-red-500 to-red-600 shadow-[0_0_25px_rgba(239,68,68,0.4)]'
-            }
+            ${isPlaying && !isMuted
+              ? 'bg-gradient-to-br from-red-500 to-red-600 shadow-[0_0_25px_rgba(239,68,68,0.4)]'
+              : 'bg-slate-700 hover:bg-slate-600'}
           `}
         >
           <Play className="text-white" size={18} />
 
           {/* glow ring when ON AIR */}
-          {!isMuted && (
+          {isPlaying && !isMuted && (
             <span className="absolute inset-0 rounded-full animate-ping bg-red-400/30" />
           )}
         </motion.button>

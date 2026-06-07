@@ -15,7 +15,14 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       {/* Header hanya muncul jika BUKAN halaman Sanity Studio */}
       {!isStudio && <Header />}
       
-      <main style={{ flex: 1 }}>
+      {/* Main content */}
+      <main
+        style={{
+          flex: 1,
+          position: 'relative',  // pastikan main tidak menutupi fixed BottomPlayer
+          zIndex: 1,              // agar BottomPlayer tetap di atas
+        }}
+      >
         {children}
       </main>
 

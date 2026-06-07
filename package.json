@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
+    "@prisma/client": "^7.8.0",
     "@sanity/client": "^6.21.0",
     "@sanity/dashboard": "^5.0.1",
     "@sanity/vision": "^5.9.0",

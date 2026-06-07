@@ -140,23 +140,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           flexDirection: 'column'
         }}
       >
-        {/* AUDIO PROVIDER */}
         <AudioProvider>
           
-          {/* PWA INSTALLATION BUTTON: FIX DI ATAS BOTTOMPLAYER */}
+          {/* PWA INSTALLATION BUTTON */}
           <div className="fixed top-4 right-4 z-50">
             <InstallationTracker />
           </div>
 
+          {/* Layout Wrapper */}
           <LayoutWrapper>
-            <main style={{ flex: 1 }}>
+            <main style={{ flex: 1, position: 'relative', zIndex: 1 }}>
               {children}
             </main>
           </LayoutWrapper>
-          
-          {/* BOTTOM PLAYER */}
-          <BottomPlayer />
 
+          {/* BottomPlayer tetap di atas semua */}
+          <BottomPlayer />
         </AudioProvider>
       </body>
     </html>

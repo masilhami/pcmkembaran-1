@@ -7,17 +7,13 @@ import { useAudioStore } from '@/store/useAudioStore'
 
 export default function MainPlayer() {
   const { playlist, currentTrackIndex } = useAudio()
-  const { isStarted, isMuted, startRadio, toggleMute } = useAudioStore()
+  const { togglePlay, toggleMute, isPlaying, isMuted } = useAudioStore()
 
   const track = playlist[currentTrackIndex]
   if (!track) return null
 
   const handleClick = async () => {
-    if (!isStarted) {
-      await startRadio()
-    } else {
-      toggleMute()
-    }
+    await togglePlay()
   }
 
   return (
@@ -32,12 +28,12 @@ export default function MainPlayer() {
 
         {/* Logo */}
         <div className="relative flex-shrink-0">
-          {isStarted && !isMuted && (
+          {isPlaying && !isMuted && (
             <div className="absolute inset-0 rounded-full bg-cyan-400/50 blur-3xl animate-pulse" />
           )}
 
           <motion.div
-            animate={isStarted && !isMuted ? { rotate: 360 } : { rotate: 0 }}
+            animate={isPlaying && !isMuted ? { rotate: 360 } : { rotate: 0 }}
             transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
             className="h-44 w-44 rounded-full border border-cyan-400/50 p-1 shadow-[0_0_50px_rgba(6,255,255,0.7)] flex items-center justify-center bg-black"
           >
@@ -59,7 +55,7 @@ export default function MainPlayer() {
           <p className="text-sm text-slate-500 truncate">{track.artist}</p>
 
           {/* ON AIR Indicator */}
-          {isStarted && !isMuted && (
+          {isPlaying && !isMuted && (
             <motion.div
               animate={{ opacity: [1, 0.2, 1] }}
               transition={{ duration: 1, repeat: Infinity }}
@@ -82,7 +78,7 @@ export default function MainPlayer() {
             className={`h-16 w-16 rounded-full flex items-center justify-center
               shadow-[0_0_30px_rgba(6,182,212,0.6)]
               transition
-              ${isStarted && !isMuted ? 'bg-red-500' : 'bg-cyan-500'}
+              ${isPlaying && !isMuted ? 'bg-red-500' : 'bg-cyan-500'}
             `}
           >
             <Play size={28} className="text-white" />
