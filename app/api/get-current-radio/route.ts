@@ -13,11 +13,11 @@ const jsonResponse = (data: any, status: number = 200) => {
 };
 
 const JINGLE_URL = "https://ia600408.us.archive.org/15/items/jingle-pcm/jingle-pcm.mp3";
-const JINGLE_DURATION = 15;
+const JINGLE_DURATION = 25;
 
 const FILLER_PLAYLIST = [
   { title: "Murottal Jeda - Surah Al-Mulk", url: "https://sdit.my.id/radio/SurahAlMulk-Saad-Al-Ghamdi.mp3", duration: 415 },
-  { title: "Nasyid Jeda - Rikhie Asbo", url: "https://sdit.my.id/radio/Rikhie-Asbo.mp3", duration: 5760 },
+  { title: "Nasyid Jeda - Shalawat Cinta | Uje", url: "https://dn721900.ca.archive.org/0/items/uje11religi/uje10.mp3", duration: 5760 },
   { title: "Murottal Jeda - Surah Al-Waqiah", url: "https://sdit.my.id/radio/al-waqiah-ust-shidqy.mp3", duration: 780 },
   { title: "Nasyid Jeda - Hanya Rindu Versi Arab", url: "https://sdit.my.id/radio/hanya-rindu-versi-arab.mp3", duration: 258 },
   { title: "Murottal Jeda - Al Fatihah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/001-Al-Fatihah.mp3", duration: 27 },
