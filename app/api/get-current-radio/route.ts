@@ -12,7 +12,7 @@ const jsonResponse = (data: any, status: number = 200) => {
   });
 };
 
-const JINGLE_URL = "https://sdit.my.id/radio/jingle.MP3";
+const JINGLE_URL = "https://ia600408.us.archive.org/15/items/jingle-pcm/jingle-pcm.mp3";
 const JINGLE_DURATION = 15;
 
 const FILLER_PLAYLIST = [
@@ -23,11 +23,12 @@ const FILLER_PLAYLIST = [
   { title: "Murottal Jeda - Al Fatihah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/001-Al-Fatihah.mp3", duration: 27 },
   { title: "Murottal Jeda - Al Baqarah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/002-Al-Baqarah.mp3", duration: 7200 },
   { title: "Murottal Jeda - Ali Imron Syaikh Abdullah Al-Mathrud", url: "https://ia801406.us.archive.org/8/items/abdullahal-mathrud/003-Ali-Imran.mp3", duration: 4800 },
+  { title: "Murottal Jeda - Rijaal Ahmad", url: "https://dn720303.ca.archive.org/0/items/y-2mate.com-rijaal-ahmad-alquran-full-30-juz-murattal/y2mate.com%20-%20RIJAAL%20AHMAD%20%20ALQURAN%20FULL%2030%20JUZ%20MURATTAL.mp3", duration: 4800 },
 ];
 
 const TOTAL_FILLER_DURATION = FILLER_PLAYLIST.reduce((acc, item) => acc + item.duration, 0);
 
-function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Al Muttaqin") {
+function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Berkemajuan") {
   if (!audioUrl) return fallback;
   try {
     const url = new URL(audioUrl);
@@ -40,7 +41,7 @@ function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Al Muttaqi
 }
 
 function getVirtualFillerTrack(gapSeconds: number) {
-  if (TOTAL_FILLER_DURATION <= 0) return { title: "Radio Suara Al Muttaqin", audio_url: "", elapsed_seconds: 0 };
+  if (TOTAL_FILLER_DURATION <= 0) return { title: "Radio Berkemajuan", audio_url: "", elapsed_seconds: 0 };
   const virtualTimeline = Math.floor(Math.abs(gapSeconds)) % TOTAL_FILLER_DURATION;
   let accumulatedTime = 0;
   for (const track of FILLER_PLAYLIST) {
