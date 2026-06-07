@@ -76,6 +76,8 @@ export default async function Home({
           <div className="recommendation-area">
             <RecommendationSection allData={allPosts || []} />
           </div>
+          
+          {/* PERBAIKAN: Gunakan tag penahan bersesuaian dengan apa yang dilepas sisi server */}
           <aside>
             <LatestArticlesSidebar />
           </aside>

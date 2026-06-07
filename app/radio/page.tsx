@@ -1,6 +1,14 @@
-// app/radio/page.tsx
+'use client' // Tambahkan ini agar aman untuk client-side handling
+
 import MainPlayer from '@/components/MainPlayer';
 import BottomPlayer from '@/components/BottomPlayer';
+import dynamic from 'next/dynamic';
+
+// 1. Matikan SSR untuk MainPlayer karena ia memuat YouTube iframe
+const MainPlayerNoSSR = dynamic(() => import('@/components/MainPlayer'), {
+  ssr: false, 
+  loading: () => <div className="h-64 flex items-center justify-center text-slate-500">Memuat Player...</div>
+});
 
 export default function RadioPage() {
   return (
@@ -12,7 +20,6 @@ export default function RadioPage() {
       </div>
 
       <div className="container mx-auto px-6 py-12 relative z-10">
-        {/* Header Section */}
         <header className="text-center mb-16 space-y-2">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
             Radio Berkemajuan
@@ -22,19 +29,17 @@ export default function RadioPage() {
           </p>
         </header>
 
-        {/* Main Content Area */}
         <section className="flex flex-col items-center">
-          <MainPlayer />
+          {/* Gunakan komponen yang sudah dimatikan SSR-nya */}
+          <MainPlayerNoSSR />
         </section>
 
-        {/* Optional: Additional Content Section */}
         <section className="mt-20 max-w-2xl mx-auto text-center border-t border-white/5 pt-10">
           <p className="text-slate-500 text-sm italic">
             "Mencerahkan, Menggerakkan, dan Memajukan Umat"
           </p>
         </section>
 
-        {/* Bottom Player (tetap fixed di komponennya) */}
         <BottomPlayer />
       </div>
     </main>

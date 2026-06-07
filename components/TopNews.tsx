@@ -1,12 +1,10 @@
 import { getNewsPosts } from "@/lib/sanity.query";
 import Link from "next/link";
-// 1. IMPOR IMAGE UNTUK OPTIMASI PERFORMA
 import Image from "next/image";
 
 export default async function TopNews() {
   const allNews = await getNewsPosts() || [];
   
-  // LOGIKA PINTAR: Hindari duplikasi dengan Headline Utama
   const topBarNews = allNews.length > 8 
     ? allNews.slice(3, 8) 
     : allNews.slice(0, 5); 
@@ -26,7 +24,6 @@ export default async function TopNews() {
     >
       {topBarNews.map((item: any) => (
         <Link 
-          // PERBAIKAN: Gunakan item.slug secara langsung (string murni dari query)
           href={`/${item.category?.toLowerCase() || 'berita'}/${item.slug}`} 
           key={item._id} 
           style={{ textDecoration: 'none', color: 'inherit' }}
@@ -42,12 +39,10 @@ export default async function TopNews() {
               position: 'relative',
               boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}>
-              {/* 2. OPTIMASI GAMBAR DENGAN SIZES */}
               <Image 
                 src={item.image || "/logo-md.png"} 
-                alt={item.title} 
+                alt={item.title || "News Image"} 
                 fill
-                // Hanya download gambar selebar 20% layar (untuk 5 kolom)
                 sizes="(max-width: 1200px) 20vw, 240px"
                 style={{ objectFit: 'cover' }} 
               />
@@ -58,7 +53,7 @@ export default async function TopNews() {
                 textTransform: 'uppercase', fontWeight: 'bold',
                 zIndex: 1
               }}>
-                {item.category}
+                {item.category || "Berita"}
               </div>
             </div>
 
@@ -71,8 +66,9 @@ export default async function TopNews() {
               {item.title}
             </h4>
 
+            {/* PERBAIKAN: Hapus suppressHydrationWarning, 
+                Gunakan fallback statis untuk menghindari mismatch */}
             <div 
-              suppressHydrationWarning
               style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#999' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -80,7 +76,8 @@ export default async function TopNews() {
                 <circle cx="12" cy="12" r="3"></circle>
               </svg>
               <span style={{ fontWeight: '700', color: '#ffc107' }}>
-                {item.views || 0}
+                {/* Pastikan ini selalu string atau number yang konsisten */}
+                {typeof item.views === 'number' ? item.views : 0}
               </span>
             </div>
           </div>

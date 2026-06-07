@@ -1,12 +1,15 @@
 // app/layout.tsx
-import RootClient from '@/components/RootClient'
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Amiri, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
+
+// Components
+import RootClient from '@/components/RootClient';
 import LayoutWrapper from "@/components/LayoutWrapper";
 import InstallationTracker from "@/components/InstallationTracker"; 
-import { AudioProvider } from '@/context/AudioContext'
-import BottomPlayer from '@/components/BottomPlayer'
+import BottomPlayer from '@/components/BottomPlayer';
+import YouTubeManager from '@/components/YouTubeManager';
+import { AudioProvider } from '@/context/AudioContext';
 
 // FONT LATIN
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -78,6 +81,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         {/* AUDIO PROVIDER MENUTUP SELURUH APPS */}
         <AudioProvider>
+          {/* YOUTUBE MANAGER: PERMANEN & AMAN DARI UNMOUNT */}
+          <YouTubeManager />
 
           {/* PWA INSTALLATION TRACKER */}
           <div className="fixed top-4 right-4 z-50">
@@ -93,7 +98,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {/* Bottom Player */}
           <BottomPlayer />
-
         </AudioProvider>
       </body>
     </html>

@@ -16,6 +16,7 @@ interface AudioContextType {
   listeners: number;
   togglePlay: () => void;
   toggleLivePlayback: () => void;
+  toggleYouTubeAudio: () => void;
   registerYouTubeToggle: (handler: (() => void) | null) => void;
   analyserRef: React.MutableRefObject<AnalyserNode | null>;
   isYouTubeLive: boolean;
@@ -54,7 +55,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [metadata, setMetadata] = useState({
     title: "Mencari Sinyal...",
-    artist: "Radio Suara Berkemajuan",
+    artist: "Radio Suara Al Muttaqin",
     art: "/bg-player.png",
   });
 
@@ -141,39 +142,59 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     youtubeToggleRef.current = handler;
   }, []);
 
-  const playJingle = useCallback(async () => {
+  const playJingle = useCallback(() => {
     try {
-      const mainAudio = audioRef.current;
-      // Cek apakah radio sedang main, tidak live youtube, dan jingle tidak sedang diputar
-      if (!mainAudio || isYouTubeLive || isJinglePlayingRef.current) return;
+      if (
+        !audioRef.current ||
+        !isPlayingRef.current ||
+        isYouTubeLive ||
+        isJinglePlayingRef.current
+      ) {
+        return;
+      }
 
       isJinglePlayingRef.current = true;
 
-      // 1. Siapkan player jingle jika belum ada
       if (!jingleRef.current) {
         jingleRef.current = new Audio(JINGLE_FILE);
+        jingleRef.current.preload = "auto";
         jingleRef.current.crossOrigin = "anonymous";
+        jingleRef.current.onerror = () => {
+          console.error("Jingle gagal dimuat");
+          if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
+          isJinglePlayingRef.current = false;
+        };
       }
 
-      // 2. PAUSE radio utama agar suara berhenti total
-      if (!mainAudio.paused) {
-        mainAudio.pause();
-      }
+      const mainAudio = audioRef.current;
+      const originalVolume = mainAudio.volume;
 
-      // 3. Putar Jingle
+      // Hanya ducking jingle jika radio sedang tidak dalam posisi di-mute user
+      mainAudio.volume = originalVolume > 0 ? 0.25 : 0; 
       jingleRef.current.currentTime = 0;
-      await jingleRef.current.play();
 
-      // 4. Setelah Jingle selesai, kembalikan radio utama
+      const runJinglePlay = async () => {
+        try {
+          if (jingleRef.current) {
+            await jingleRef.current.play();
+          }
+        } catch (playErr) {
+          console.error("Jingle playback execution blocked:", playErr);
+          if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
+          isJinglePlayingRef.current = false;
+        }
+      };
+
+      runJinglePlay();
+
       jingleRef.current.onended = () => {
+        mainAudio.volume = isPlayingRef.current ? 1 : 0;
         isJinglePlayingRef.current = false;
-        mainAudio.play().catch(console.error);
       };
     } catch (err) {
-      console.error("Gagal putar jingle:", err);
+      console.error("Gagal memutar jingle:", err);
+      if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
       isJinglePlayingRef.current = false;
-      // Jika gagal, pastikan radio utama kembali jalan
-      if (audioRef.current) audioRef.current.play().catch(console.error);
     }
   }, [isYouTubeLive]);
 
@@ -181,27 +202,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     async (data: any, forceReload = false) => {
       if (!audioRef.current || !data?.active || !data.audio_url) return false;
 
-      const audio = audioRef.current;
-
-      // 1. LOGIKA JINGLE: Pause audio utama saat jingle masuk
-      if (data.type === "jingle") {
-        if (!audio.paused) {
-          audio.pause();
-        }
-        setMetadata({
-          title: data.title || "Jingle",
-          artist: "Radio Berkemajuan",
-          art: "/bg-player.png",
-        });
-        return true; 
-      }
-
-      // 2. LOGIKA RESUME: Jika sebelumnya di-pause oleh jingle, mainkan kembali
-      if (audio.paused && data.type !== "jingle" && data.active) {
-        audio.play().catch(console.error);
-      }
-
-      // 3. LOGIKA YOUTUBE LIVE
       if (data.type === "youtube_live" || isYouTubeLive) {
         resetMp3PlaybackCompletely();
         setIsYouTubeLive(true);
@@ -214,7 +214,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      // 4. LOGIKA PEMUATAN AUDIO UTAMA
+      const audio = audioRef.current;
       const audioCtx = audioContextRef.current;
       const nextSrc = new URL(data.audio_url, window.location.href).href;
       const currentSrc = audio.src;
@@ -224,20 +224,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       const isSrcEmpty = !currentSrc || currentSrc === "" || currentSrc === window.location.href;
       const shouldReloadSrc = isSrcEmpty || currentSrc !== nextSrc || lastSyncedUrlRef.current !== nextSrc;
+      
+      // Jika source-nya sama dan audio sudah berputar (meski di-mute), tidak usah di-seek/forceReload dari database
       const shouldSeek = shouldReloadSrc || forceReload || timeDrift > 8;
 
       setMetadata({
         title: data.title || "Siaran Sedang Aktif",
-        artist: "Radio Suara Berkemajuan",
+        artist: "Radio Suara Al Muttaqin",
         art: "/bg-player.png",
       });
       setListeners(1);
 
       try {
         isAutoSwitchingRef.current = true;
+
         if (shouldReloadSrc) {
           audio.src = data.audio_url;
           audio.load();
+
           await new Promise<void>((resolve) => {
             const onLoadedMetadata = () => {
               audio.removeEventListener("loadedmetadata", onLoadedMetadata);
@@ -248,6 +252,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
+        // Catch-up sinkronisasi detik live dari server hanya jika source-nya fresh baru dimuat / melenceng jauh
         if (shouldSeek && audio.readyState >= 1) {
           if (targetTime > 0 && (!audio.duration || targetTime < audio.duration)) {
             audio.currentTime = targetTime;
@@ -260,7 +265,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           await audioCtx.resume();
         }
 
+        // Kembalikan volume ke keras (unmute)
         audio.volume = 1;
+
+        // Pastikan pemutar aktif berjalan
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           await playPromise;
@@ -270,10 +278,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         userStoppedRef.current = false;
         setIsPlaying(true);
         setHasError(false);
+
         return true;
       } catch (err) {
         console.error("Gagal menerapkan audio radio:", err);
-        if (!forceReload) return applyRadioDataToAudio(data, true);
+        if (!forceReload) {
+          return applyRadioDataToAudio(data, true);
+        }
         setHasError(true);
         setIsPlaying(false);
         return false;
@@ -284,31 +295,37 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     [isYouTubeLive, resetMp3PlaybackCompletely, youtubeThumbnail]
   );
 
-     
-
   const fetchMetadata = useCallback(async () => {
     try {
       const data = await fetchCurrentRadio();
 
       if (data?.active && data.type === "youtube_live") {
         resetMp3PlaybackCompletely();
+
+        setYoutubeVideoId(data.youtube_video_id || null);
+
         setIsYouTubeLive(true);
+
         setMetadata({
           title: data.title || "YouTube Live Streaming",
           artist: "YouTube Live Stream",
-          art: youtubeThumbnail,
+          art:
+            data.thumbnail ||
+            (data.youtube_video_id
+              ? `https://img.youtube.com/vi/${data.youtube_video_id}/hqdefault.jpg`
+              : "/bg-player.png"),
         });
+
         setListeners(1);
         return;
       }
-
+        
       setIsYouTubeLive(false);
-      setIsYouTubePlaying(false);
 
       if (data?.active) {
         setMetadata({
           title: data.title || "Siaran Sedang Aktif",
-          artist: "Radio Suara Berkemajuan",
+          artist: "Radio Suara Al Muttaqin",
           art: "/bg-player.png",
         });
         setListeners(1);
@@ -317,19 +334,19 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       setMetadata({
         title: "Siaran Sedang Offline",
-        artist: "Radio Suara Berkemajuan",
+        artist: "Radio Suara Al Muttaqin",
         art: "/bg-player.png",
       });
       setListeners(0);
     } catch {
       setMetadata({
         title: "Siaran Sedang Offline",
-        artist: "Radio Suara Berkemajuan",
+        artist: "Radio Suara Al Muttaqin",
         art: "/bg-player.png",
       });
       setListeners(0);
     }
-  }, [fetchCurrentRadio, resetMp3PlaybackCompletely, youtubeThumbnail]);
+  }, [fetchCurrentRadio, resetMp3PlaybackCompletely]);
 
   useEffect(() => {
     fetchMetadata();
@@ -387,16 +404,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       if (data?.type === "youtube_live") {
         resetMp3PlaybackCompletely();
+
+        setYoutubeVideoId(
+          data.youtube_video_id || null
+        );
+
         setIsYouTubeLive(true);
+
         setMetadata({
           title: data.title || "YouTube Live Streaming",
           artist: "YouTube Live Stream",
-          art: youtubeThumbnail,
+          art:
+            data.thumbnail ||
+            (data.youtube_video_id
+              ? `https://img.youtube.com/vi/${data.youtube_video_id}/hqdefault.jpg`
+              : "/bg-player.png"),
         });
+
         setListeners(1);
         return;
       }
-
+       
       if (data?.active) {
         await applyRadioDataToAudio(data, false);
       } else {
@@ -406,7 +434,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setHasError(true);
       setIsPlaying(false);
     }
-  }, [applyRadioDataToAudio, fetchCurrentRadio, resetMp3PlaybackCompletely, youtubeThumbnail]);
+  }, [applyRadioDataToAudio, fetchCurrentRadio, resetMp3PlaybackCompletely]);
 
   const togglePlay = useCallback(async () => {
     if (!audioRef.current) return;
@@ -434,6 +462,36 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     togglePlay();
   }, [isYouTubeLive, togglePlay]);
+
+ // --- FUNGSI GLOBAL UNTUK MENGONTROL YOUTUBE DARI MANA SAJA ---
+  const toggleYouTubeAudio = useCallback(() => {
+    // 1. Ambil status kebalikan dari yang sekarang berjalan
+    const nextState = !isYouTubePlaying;
+
+    // 2. Tembakkan instruksi fisik ke iframe melalui event global
+    window.dispatchEvent(new CustomEvent("toggle-yt-player"));
+
+    // 3. Paksa mutasi state di level Context secara instan agar memicu re-render global
+    setIsYouTubePlaying(nextState);
+
+    // 4. Broadcast event untuk cadangan sinkronisasi komponen lawas
+    window.dispatchEvent(new CustomEvent("yt-status-change", { detail: nextState }));
+
+    // 5. Redam audio MP3 jika YouTube sedang mengambil alih siaran
+    if (nextState && audioRef.current) {
+      audioRef.current.volume = 0;
+      setIsPlaying(false);
+    }
+  }, [isYouTubePlaying]);
+
+  // Listener global tambahan untuk menjaga sinkronisasi status YouTube dari luar context
+  useEffect(() => {
+    const syncStatusFromEvent = (e: any) => {
+      setIsYouTubePlaying(e.detail);
+    };
+    window.addEventListener("yt-status-change", syncStatusFromEvent);
+    return () => window.removeEventListener("yt-status-change", syncStatusFromEvent);
+  }, []);
 
   useEffect(() => {
     if (isYouTubeLive) {
@@ -483,6 +541,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         listeners,
         togglePlay,
         toggleLivePlayback,
+        toggleYouTubeAudio,
         registerYouTubeToggle,
         analyserRef,
         isYouTubeLive,
@@ -499,8 +558,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         crossOrigin="anonymous"
         preload="none"
         onPause={() => {
-          // Hanya set false jika benar-benar dipaksa pause oleh system,
-          // jika dalam mode Mute (berputar terus), biarkan state isPlaying diatur oleh togglePlay kita.
           if (!isAutoSwitchingRef.current && userStoppedRef.current && audioRef.current?.volume === 0) {
             // Pembiaran state dikendalikan fungsi mute kita sendiri
           }
