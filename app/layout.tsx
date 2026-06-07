@@ -1,3 +1,5 @@
+'use client'
+
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Amiri, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
