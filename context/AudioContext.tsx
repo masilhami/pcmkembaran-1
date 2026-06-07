@@ -143,45 +143,37 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const playJingle = useCallback(async () => {
     try {
-      if (
-        !audioRef.current ||
-        !isPlayingRef.current ||
-        isYouTubeLive ||
-        isJinglePlayingRef.current
-      ) {
-        return;
-      }
+      const mainAudio = audioRef.current;
+      // Cek apakah radio sedang main, tidak live youtube, dan jingle tidak sedang diputar
+      if (!mainAudio || isYouTubeLive || isJinglePlayingRef.current) return;
 
       isJinglePlayingRef.current = true;
 
+      // 1. Siapkan player jingle jika belum ada
       if (!jingleRef.current) {
         jingleRef.current = new Audio(JINGLE_FILE);
-        jingleRef.current.preload = "auto";
         jingleRef.current.crossOrigin = "anonymous";
-        jingleRef.current.onerror = () => {
-          console.error("Jingle gagal dimuat");
-          if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
-          isJinglePlayingRef.current = false;
-        };
       }
 
-      const mainAudio = audioRef.current;
-      const originalVolume = mainAudio.volume;
+      // 2. PAUSE radio utama agar suara berhenti total
+      if (!mainAudio.paused) {
+        mainAudio.pause();
+      }
 
-      // Hanya ducking jingle jika radio sedang tidak dalam posisi di-mute user
-      mainAudio.volume = originalVolume > 0 ? 0.25 : 0; 
+      // 3. Putar Jingle
       jingleRef.current.currentTime = 0;
-
       await jingleRef.current.play();
 
+      // 4. Setelah Jingle selesai, kembalikan radio utama
       jingleRef.current.onended = () => {
-        mainAudio.volume = isPlayingRef.current ? 1 : 0;
         isJinglePlayingRef.current = false;
+        mainAudio.play().catch(console.error);
       };
     } catch (err) {
-      console.error("Gagal memutar jingle:", err);
-      if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
+      console.error("Gagal putar jingle:", err);
       isJinglePlayingRef.current = false;
+      // Jika gagal, pastikan radio utama kembali jalan
+      if (audioRef.current) audioRef.current.play().catch(console.error);
     }
   }, [isYouTubeLive]);
 
