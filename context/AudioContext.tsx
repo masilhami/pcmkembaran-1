@@ -189,6 +189,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     async (data: any, forceReload = false) => {
       if (!audioRef.current || !data?.active || !data.audio_url) return false;
 
+      const audio = audioRef.current;
+
+      // 1. LOGIKA JINGLE: Pause audio utama saat jingle masuk
+      if (data.type === "jingle") {
+        if (!audio.paused) {
+          audio.pause();
+        }
+        setMetadata({
+          title: data.title || "Jingle",
+          artist: "Radio Berkemajuan",
+          art: "/bg-player.png",
+        });
+        return true; 
+      }
+
+      // 2. LOGIKA RESUME: Jika sebelumnya di-pause oleh jingle, mainkan kembali
+      if (audio.paused && data.type !== "jingle" && data.active) {
+        audio.play().catch(console.error);
+      }
+
+      // 3. LOGIKA YOUTUBE LIVE
       if (data.type === "youtube_live" || isYouTubeLive) {
         resetMp3PlaybackCompletely();
         setIsYouTubeLive(true);
@@ -201,7 +222,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const audio = audioRef.current;
+      // 4. LOGIKA PEMUATAN AUDIO UTAMA
       const audioCtx = audioContextRef.current;
       const nextSrc = new URL(data.audio_url, window.location.href).href;
       const currentSrc = audio.src;
@@ -211,8 +232,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       const isSrcEmpty = !currentSrc || currentSrc === "" || currentSrc === window.location.href;
       const shouldReloadSrc = isSrcEmpty || currentSrc !== nextSrc || lastSyncedUrlRef.current !== nextSrc;
-      
-      // Jika source-nya sama dan audio sudah berputar (meski di-mute), tidak usah di-seek/forceReload dari database
       const shouldSeek = shouldReloadSrc || forceReload || timeDrift > 8;
 
       setMetadata({
@@ -224,11 +243,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       try {
         isAutoSwitchingRef.current = true;
-
         if (shouldReloadSrc) {
           audio.src = data.audio_url;
           audio.load();
-
           await new Promise<void>((resolve) => {
             const onLoadedMetadata = () => {
               audio.removeEventListener("loadedmetadata", onLoadedMetadata);
@@ -239,7 +256,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
-        // Catch-up sinkronisasi detik live dari server hanya jika source-nya fresh baru dimuat / melenceng jauh
         if (shouldSeek && audio.readyState >= 1) {
           if (targetTime > 0 && (!audio.duration || targetTime < audio.duration)) {
             audio.currentTime = targetTime;
@@ -252,10 +268,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           await audioCtx.resume();
         }
 
-        // Kembalikan volume ke keras (unmute)
         audio.volume = 1;
-
-        // Pastikan pemutar aktif berjalan
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           await playPromise;
@@ -265,13 +278,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         userStoppedRef.current = false;
         setIsPlaying(true);
         setHasError(false);
-
         return true;
       } catch (err) {
         console.error("Gagal menerapkan audio radio:", err);
-        if (!forceReload) {
-          return applyRadioDataToAudio(data, true);
-        }
+        if (!forceReload) return applyRadioDataToAudio(data, true);
         setHasError(true);
         setIsPlaying(false);
         return false;
@@ -281,6 +291,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     },
     [isYouTubeLive, resetMp3PlaybackCompletely, youtubeThumbnail]
   );
+
+     
 
   const fetchMetadata = useCallback(async () => {
     try {
