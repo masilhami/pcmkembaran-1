@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { client } from "@/lib/sanity.client"; // Dipertahaman sesuai path impor client Sanity Anda
+import { client } from "@/lib/sanity.client"; // Dipertahankan sesuai path impor client Sanity Anda
 
 export const dynamic = "force-dynamic"; // Memaksa API selalu fresh tanpa membeku di cache Vercel
 
@@ -143,9 +143,20 @@ export async function GET() {
       const config = await client.fetch(sanityQuery, {}, { cache: 'no-store' });
 
       if (config && config.schedules && Array.isArray(config.schedules)) {
-        // Ambil waktu sekarang di zona lokal Asia/Jakarta (WIB) secara presisi
-        const localTimeStr = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour12: false });
-        const [currentHours, currentMinutes, currentSecs] = localTimeStr.split('.').map(Number);
+        // PERBAIKAN SAKTI: Ekstraksi jam, menit, dan detik lokal Asia/Jakarta (WIB) tanpa split karakter titik/titik dua
+        const formatter = new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+
+        const timeParts = formatter.formatToParts(now);
+        const currentHours = Number(timeParts.find(p => p.type === 'hour')?.value || 0);
+        const currentMinutes = Number(timeParts.find(p => p.type === 'minute')?.value || 0);
+        const currentSecs = Number(timeParts.find(p => p.type === 'second')?.value || 0);
+        
         const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
         let activeSchedule = null;
@@ -163,6 +174,9 @@ export async function GET() {
         if (activeSchedule) {
           const isYoutube = activeSchedule.broadcastMode === 'youtube_live';
           const stationName = config.radioName || "Radio Suara Berkemajuan";
+          const startMinutes = timeToMinutes(activeSchedule.startTime);
+          const secondsSinceScheduleStarted = ((currentTotalMinutes - startMinutes) * 60) + currentSecs;
+          const ASSUMED_TRACK_DURATION = 3600; 
 
           // --- MANAJEMEN MODE TRANS-TRANSMISI: YOUTUBE LIVE ---
           if (isYoutube) {
@@ -182,22 +196,11 @@ export async function GET() {
 
           // --- MANAJEMEN MODE TRANS-TRANSMISI: PLAYLIST MP3 CLOUD ---
           if (activeSchedule.playlist && activeSchedule.playlist.length > 0) {
-            const startMinutes = timeToMinutes(activeSchedule.startTime);
-            
-            // Hitung akumulasi berapa detik blok jadwal ini sudah berjalan sejak waktu mulainya
-            const secondsSinceScheduleStarted = ((currentTotalMinutes - startMinutes) * 60) + currentSecs;
-
-            // Kita asumsikan alokasi durasi putar per track MP3 adalah 1 Jam (3600 detik)
-            // agar bisa berotasi melingkar (looping) mengisi kekosongan timeline jika slot melebihi durasi file asli.
-            const ASSUMED_TRACK_DURATION = 3600; 
             const totalPlaylistTracks = activeSchedule.playlist.length;
-            
-            // Hitung indeks array file mana yang seharusnya aktif pada detik ini
             const totalTrackIndexTimeline = Math.floor(secondsSinceScheduleStarted / ASSUMED_TRACK_DURATION);
             const currentTrackIndex = totalTrackIndexTimeline % totalPlaylistTracks;
             
             const selectedTrack = activeSchedule.playlist[currentTrackIndex];
-            // Hitung detik berjalan di dalam file audio yang sedang terpilh tersebut (Catch-up sync)
             const trackElapsedSeconds = secondsSinceScheduleStarted % ASSUMED_TRACK_DURATION;
 
             return NextResponse.json({
@@ -209,14 +212,33 @@ export async function GET() {
               artist: selectedTrack?.speaker || activeSchedule.speaker || "PCM Kembaran",
               program_title: stationName,
               audio_url: selectedTrack?.audioFileUrl || null,
-              elapsed_seconds: trackElapsedSeconds, // Mengirimkan posisi detik sinkronisasi ke frontend
+              elapsed_seconds: trackElapsedSeconds,
+            });
+          } else {
+            // BACKUP AMAN: Jika blok waktu aktif tapi file mp3 kosong, putar filler agar web tidak offline
+            const totalFillerTracks = FILLER_PLAYLIST.length;
+            const totalTrackIndexTimeline = Math.floor(secondsSinceScheduleStarted / ASSUMED_TRACK_DURATION);
+            const currentFillerIndex = totalTrackIndexTimeline % totalFillerTracks;
+            
+            const selectedFiller = FILLER_PLAYLIST[currentFillerIndex];
+            const trackElapsedSeconds = secondsSinceScheduleStarted % ASSUMED_TRACK_DURATION;
+
+            return NextResponse.json({
+              active: true,
+              type: "playlist_mp3",
+              youtube_video_id: null,
+              thumbnail: "/bg-player.png",
+              title: selectedFiller.title,
+              artist: activeSchedule.speaker || "PCM Kembaran",
+              program_title: activeSchedule.eventName || stationName,
+              audio_url: selectedFiller.url,
+              elapsed_seconds: trackElapsedSeconds,
             });
           }
         }
       }
     } catch (sanityError) {
       console.error("Gagal memproses otomatisasi jadwal Sanity CMS:", sanityError);
-      // Jika database Sanity down, program otomatis meluncur ke bawah mengeksekusi data engine Prisma/Filler
     }
 
     // =================================================================
