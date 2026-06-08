@@ -30,6 +30,40 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
+// Fungsi pembantu untuk mengubah string "HH:MM" menjadi menit total agar mudah dibandingkan
+const timeToMinutes = (timeStr: string): number => {
+  if (!timeStr) return 0;
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+// Fungsi utama menentukan acara mana yang aktif saat ini berdasarkan jam sekarang
+const getCurrentActiveSchedule = (schedules: any[]) => {
+  if (!schedules || !Array.isArray(schedules)) return null;
+  
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes(); 
+
+  for (const schedule of schedules) {
+    const start = timeToMinutes(schedule.startTime);
+    const end = timeToMinutes(schedule.endTime);
+
+    if (currentMinutes >= start && currentMinutes < end) {
+      return schedule;
+    }
+  }
+  return null;
+};
+
+// Fungsi placeholder (Pastikan fungsi ini di-import dari folder service Sanity kamu)
+async function fetchAllRadioSchedulesFromSanity() {
+  const res = await fetch("/api/get-current-radio", { cache: "no-store" });
+  if (!res.ok) throw new Error("Radio API offline");
+  const data = await res.json();
+  // Jika API kamu mengembalikan array schedule langsung, return data tersebut
+  return data?.schedules || [];
+}
+
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<any>(null);
@@ -42,7 +76,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const userStoppedRef = useRef(false);
   const isAutoSwitchingRef = useRef(false);
 
-  // isPlaying mendeskripsikan status "apakah suara radio aktif didengar user"
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
   const isYouTubePlayingRef = useRef(false);
@@ -67,20 +100,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     ? `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`
     : "/bg-player.png";
 
-  // --- Jingle setup ---
   const jingleRef = useRef<HTMLAudioElement | null>(null);
   const jingleIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isJinglePlayingRef = useRef(false);
 
-  const JINGLE_INTERVAL = 5 * 60 * 1000; // Kembalikan ke 5 menit untuk produksi server Vercel
+  const JINGLE_INTERVAL = 5 * 60 * 1000; 
   const JINGLE_FILE = "/audio/jingle-pcm.mp3";
 
-  // --- Mute MP3 Tanpa Pause (File Tetap Berputar di Background) ---
   const stopMp3Playback = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Jingle tetap kita matikan secara normal jika stop ditekan
     if (jingleRef.current) {
       jingleRef.current.pause();
       jingleRef.current.currentTime = 0;
@@ -96,8 +126,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     isAutoSwitchingRef.current = false;
 
     try {
-      // KHUSUS WEB RADIO: File MP3 dibiarkan TETAP BERPUTAR (.play() tidak di-pause)
-      // Kita hanya mematikan suaranya (Mute) agar timeline berjalan terus di background.
       audio.volume = 0;
     } catch (e) {
       console.warn("Mute handling error:", e);
@@ -106,7 +134,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     setIsPlaying(false);
   }, []);
 
-  // --- Reset Total (Digunakan jika berpindah ke YouTube Live) ---
   const resetMp3PlaybackCompletely = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -133,22 +160,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     setIsPlaying(false);
   }, []);
 
-  const fetchCurrentRadio = useCallback(async () => {
-    const res = await fetch("/api/get-current-radio", { cache: "no-store" });
-    if (!res.ok) throw new Error("Radio API offline");
-    return res.json();
-  }, []);
-
   const registerYouTubeToggle = useCallback((handler: (() => void) | null) => {
     youtubeToggleRef.current = handler;
   }, []);
 
-const playJingle = useCallback(() => {
+  const playJingle = useCallback(() => {
     try {
-      // =========================================================================
-      // Jingle HANYA diizinkan berputar jika user mendengar Radio MP3 murni.
-      // Jika user sedang memutar YouTube Live, fungsi ini langsung STOP (Return).
-      // =========================================================================
       if (!isPlayingRef.current || isYouTubePlayingRef.current || isJinglePlayingRef.current) {
         return;
       }
@@ -169,7 +186,6 @@ const playJingle = useCallback(() => {
         };
       }
 
-      // PROSES AUDIO DUCKING (Hanya untuk Radio MP3 murni)
       mainAudio.volume = 0.01; 
       jingleRef.current.currentTime = 0;
 
@@ -187,7 +203,6 @@ const playJingle = useCallback(() => {
 
       runJinglePlay();
 
-      // PROSES RESTORE VOLUME MP3
       jingleRef.current.onended = () => {
         const mainAudioElement = audioRef.current;
         if (isPlayingRef.current && mainAudioElement) {
@@ -202,147 +217,65 @@ const playJingle = useCallback(() => {
     }
   }, []);
 
-  const applyRadioDataToAudio = useCallback(
-    async (data: any, forceReload = false) => {
-      if (!audioRef.current || !data?.active || !data.audio_url) return false;
-
-     if (data.type === "youtube_live" || isYouTubeLive) {
-  resetMp3PlaybackCompletely();
-  setIsYouTubeLive(true);
-  setMetadata({
-    title: data.title || "Radio Suara Berkemajuan",
-    artist: data.artist || "PCM Kembaran", // <--- Diubah agar fleksibel mengikuti API backend
-    art: youtubeThumbnail,
-  });
-  setListeners(1);
-  return false;
-}
-
-      const audio = audioRef.current;
-      const audioCtx = audioContextRef.current;
-      const nextSrc = new URL(data.audio_url, window.location.href).href;
-      const currentSrc = audio.src;
-      const targetTime = Number(data.elapsed_seconds || 0);
-      const currentTime = Number(audio.currentTime || 0);
-      const timeDrift = Math.abs(currentTime - targetTime);
-
-      const isSrcEmpty = !currentSrc || currentSrc === "" || currentSrc === window.location.href;
-      const shouldReloadSrc = isSrcEmpty || currentSrc !== nextSrc || lastSyncedUrlRef.current !== nextSrc;
-      
-      // Jika source-nya sama dan audio sudah berputar (meski di-mute), tidak usah di-seek/forceReload dari database
-      const shouldSeek = shouldReloadSrc || forceReload || timeDrift > 8;
-
-      setMetadata({
-        title: data.title || "Siaran Sedang Aktif",
-        artist: "Radio Suara Al Muttaqin",
-        art: "/bg-player.png",
-      });
-      setListeners(1);
-
-      try {
-        isAutoSwitchingRef.current = true;
-
-        if (shouldReloadSrc) {
-          audio.src = data.audio_url;
-          audio.load();
-
-          await new Promise<void>((resolve) => {
-            const onLoadedMetadata = () => {
-              audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-              resolve();
-            };
-            audio.addEventListener("loadedmetadata", onLoadedMetadata);
-            setTimeout(resolve, 1200);
-          });
-        }
-
-        // Catch-up sinkronisasi detik live dari server hanya jika source-nya fresh baru dimuat / melenceng jauh
-        if (shouldSeek && audio.readyState >= 1) {
-          if (targetTime > 0 && (!audio.duration || targetTime < audio.duration)) {
-            audio.currentTime = targetTime;
-          } else if (!audio.duration) {
-            audio.currentTime = 0;
-          }
-        }
-
-        if (audioCtx && audioCtx.state === "suspended") {
-          await audioCtx.resume();
-        }
-
-        // Kembalikan volume ke keras (unmute)
-        audio.volume = 1;
-
-        // Pastikan pemutar aktif berjalan
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          await playPromise;
-        }
-
-        lastSyncedUrlRef.current = nextSrc;
-        userStoppedRef.current = false;
-        setIsPlaying(true);
-        setHasError(false);
-
-        return true;
-      } catch (err) {
-        console.error("Gagal menerapkan audio radio:", err);
-        if (!forceReload) {
-          return applyRadioDataToAudio(data, true);
-        }
-        setHasError(true);
-        setIsPlaying(false);
-        return false;
-      } finally {
-        isAutoSwitchingRef.current = false;
-      }
-    },
-    [isYouTubeLive, resetMp3PlaybackCompletely, youtubeThumbnail]
-  );
-
   const fetchMetadata = useCallback(async () => {
     try {
-      const data = await fetchCurrentRadio();
+      // 1. Ambil seluruh data jadwal siaran dari Sanity
+      const allSchedules = await fetchAllRadioSchedulesFromSanity(); 
+      
+      // 2. Cari acara apa yang harusnya aktif di JAM SEKARANG
+      const activeSchedule = getCurrentActiveSchedule(allSchedules);
 
-     if (data?.active && data.type === "youtube_live") {
-  resetMp3PlaybackCompletely();
-  setYoutubeVideoId(data.youtube_video_id || null);
-  setIsYouTubeLive(true);
-  setMetadata({
-    title: data.title || "Radio Suara Berkemajuan",
-    artist: data.artist || "PCM Kembaran", // <--- Mengikuti string penyamaran dari API backend
-    art: data.thumbnail || (data.youtube_video_id ? `https://img.youtube.com/vi/${data.youtube_video_id}/hqdefault.jpg` : "/bg-player.png"),
-  });
-  setListeners(1);
-  return;
-}
-        
-      setIsYouTubeLive(false);
+      // Jika tidak ada jadwal yang cocok, matikan pemutar (Offline)
+      if (!activeSchedule) {
+        setIsYouTubeLive(false);
+        setMetadata({ title: "Siaran Sedang Offline", artist: "Radio Suara Al Muttaqin", art: "/bg-player.png" });
+        setListeners(0);
+        return;
+      }
 
-      if (data?.active) {
+      // 3. KONDISI A: Jika jam sekarang adalah jadwalnya LIVE YOUTUBE
+      if (activeSchedule.broadcastMode === "youtube_live") {
+        resetMp3PlaybackCompletely();
+        setYoutubeVideoId(activeSchedule.youtubeVideoId || null);
+        setIsYouTubeLive(true);
         setMetadata({
-          title: data.title || "Siaran Sedang Aktif",
-          artist: "Radio Suara Al Muttaqin",
-          art: "/bg-player.png",
+          title: activeSchedule.eventName || "Live Streaming",
+          artist: "PCM Kembaran",
+          art: `https://img.youtube.com/vi/${activeSchedule.youtubeVideoId}/hqdefault.jpg`,
         });
         setListeners(1);
         return;
       }
+      
+      // 4. KONDISI B: Jika jam sekarang adalah jadwalnya PLAYLIST MP3
+      if (activeSchedule.broadcastMode === "playlist_mp3" && activeSchedule.playlist?.length > 0) {
+        setIsYouTubeLive(false);
+        
+        const currentTrack = activeSchedule.playlist[0]; 
+        
+        setMetadata({
+          title: currentTrack.trackTitle || activeSchedule.eventName,
+          artist: currentTrack.speaker || "PCM Kembaran",
+          art: "/bg-player.png",
+        });
 
-      setMetadata({
-        title: "Siaran Sedang Offline",
-        artist: "Radio Suara Al Muttaqin",
-        art: "/bg-player.png",
-      });
-      setListeners(0);
-    } catch {
-      setMetadata({
-        title: "Siaran Sedang Offline",
-        artist: "Radio Suara Al Muttaqin",
-        art: "/bg-player.png",
-      });
+        if (audioRef.current && audioRef.current.src !== currentTrack.audioFileUrl) {
+          audioRef.current.src = currentTrack.audioFileUrl;
+          audioRef.current.load();
+          if (isPlayingRef.current) {
+            audioRef.current.play().catch(err => console.error("Gagal putar otomatis:", err));
+          }
+        }
+        setListeners(1);
+        return;
+      }
+
+    } catch (error) {
+      console.error("Gagal memuat jadwal otomatis:", error);
+      setMetadata({ title: "Siaran Sedang Offline", artist: "Radio Suara Al Muttaqin", art: "/bg-player.png" });
       setListeners(0);
     }
-  }, [fetchCurrentRadio, resetMp3PlaybackCompletely]);
+  }, [resetMp3PlaybackCompletely]);
 
   useEffect(() => {
     fetchMetadata();
@@ -354,7 +287,6 @@ const playJingle = useCallback(() => {
     if (isInitialized.current || !audioRef.current) return;
 
     try {
-      // PERBAIKAN TS & CSP: Gunakan globalThis.AudioContext agar tidak bentrok dengan nama AudioContext milik React
       const WebAudioContext = typeof window !== "undefined" 
         ? (window.AudioContext || (window as unknown as { webkitAudioContext: typeof globalThis.AudioContext }).webkitAudioContext) 
         : null;
@@ -386,49 +318,25 @@ const playJingle = useCallback(() => {
   const startPlayback = useCallback(async () => {
     try {
       const audio = audioRef.current;
-      
-      // Jika source audio sudah terpasang dan statusnya sebetulnya sedang berputar (Muted),
-      // kita cukup mengembalikan volumenya ke 1 (Unmute) langsung tanpa request API / reload file.
       if (audio && audio.src && audio.src !== "" && audio.src !== window.location.href) {
         audio.volume = 1;
-        
-        // Jaga-jaga jika state play-nya sempat drop karena gangguan network
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           await playPromise;
         }
-        
         userStoppedRef.current = false;
         setIsPlaying(true);
         setHasError(false);
         return;
       }
 
-      const data = await fetchCurrentRadio();
-
-      if (data?.type === "youtube_live") {
-  resetMp3PlaybackCompletely();
-  setYoutubeVideoId(data.youtube_video_id || null);
-  setIsYouTubeLive(true);
-  setMetadata({
-    title: data.title || "Radio Suara Berkemajuan",
-    artist: data.artist || "PCM Kembaran", // <--- Mengambil substitusi dari API backend
-    art: data.thumbnail || (data.youtube_video_id ? `https://img.youtube.com/vi/${data.youtube_video_id}/hqdefault.jpg` : "/bg-player.png"),
-  });
-  setListeners(1);
-  return;
-}
-       
-      if (data?.active) {
-        await applyRadioDataToAudio(data, false);
-      } else {
-        setIsPlaying(false);
-      }
+      // Re-trigger pengecekan jadwal saat user menekan Play secara manual
+      await fetchMetadata();
     } catch {
       setHasError(true);
       setIsPlaying(false);
     }
-  }, [applyRadioDataToAudio, fetchCurrentRadio, resetMp3PlaybackCompletely]);
+  }, [fetchMetadata]);
 
   const togglePlay = useCallback(async () => {
     if (!audioRef.current) return;
@@ -444,7 +352,6 @@ const playJingle = useCallback(() => {
 
     userStoppedRef.current = false;
     setHasError(false);
-
     await startPlayback();
   }, [initAudio, isPlaying, stopMp3Playback, startPlayback]);
 
@@ -453,54 +360,39 @@ const playJingle = useCallback(() => {
       youtubeToggleRef.current();
       return;
     }
-
     togglePlay();
   }, [isYouTubeLive, togglePlay]);
 
- // --- FUNGSI GLOBAL UNTUK MENGONTROL YOUTUBE DARI MANA SAJA ---
- const toggleYouTubeAudio = useCallback(() => {
-    // 1. Ambil status kebalikan dari yang sekarang berjalan
+  const toggleYouTubeAudio = useCallback(() => {
     const nextState = !isYouTubePlayingRef.current;
-
-    // 2. Tembakkan instruksi fisik ke iframe melalui event global
     window.dispatchEvent(new CustomEvent("toggle-yt-player"));
 
-    // 3. Paksa mutasi state di level Context secara instan agar memicu re-render global
     setIsYouTubePlaying(nextState);
-	isYouTubePlayingRef.current = nextState;
+    isYouTubePlayingRef.current = nextState;
 
-    // 4. Broadcast event untuk cadangan sinkronisasi komponen lawas
     window.dispatchEvent(new CustomEvent("yt-status-change", { detail: nextState }));
 
-    // =========================================================================
-    // TRIK SAKTI UNLOCK AUTOPLAY POLICY BROWSER
-    // Mengaktifkan izin objek audio jingle tepat saat user melakukan KLIK UTAMA.
-    // =========================================================================
     if (!jingleRef.current) {
       jingleRef.current = new Audio(JINGLE_FILE);
       jingleRef.current.preload = "auto";
       jingleRef.current.crossOrigin = "anonymous";
     }
     
-    // Paksa browser me-load file jingle di memori latar belakang lewat interaksi klik ini
     if (nextState) {
       jingleRef.current.load();
     }
-    // =========================================================================
 
-    // 5. Redam audio MP3 jika YouTube sedang mengambil alih siaran
     if (nextState && audioRef.current) {
       audioRef.current.volume = 0;
       setIsPlaying(false);
-      isPlayingRef.current = false; // <--- SUNTIKKAN SINKRONISASI INSTAN INI
+      isPlayingRef.current = false; 
     }
-  }, [isYouTubePlaying, JINGLE_FILE]); // Pastikan JINGLE_FILE masuk ke dependensi jika ia variabel luar
+  }, [JINGLE_FILE]); 
 
-  // Listener global tambahan untuk menjaga sinkronisasi status YouTube dari luar context
   useEffect(() => {
     const syncStatusFromEvent = (e: any) => {
       setIsYouTubePlaying(e.detail);
-      isYouTubePlayingRef.current = e.detail; // <--- SUNTIKKAN SINKRONISASI INI JUGA!
+      isYouTubePlayingRef.current = e.detail; 
     };
     window.addEventListener("yt-status-change", syncStatusFromEvent);
     return () => window.removeEventListener("yt-status-change", syncStatusFromEvent);
@@ -512,15 +404,12 @@ const playJingle = useCallback(() => {
     }
   }, [isYouTubeLive, resetMp3PlaybackCompletely]);
 
-  // --- Scheduler Jingle Final (Anti-Reset Timer) ---
   useEffect(() => {
-    // 1. Bersihkan sisa timer masa lalu agar tidak terjadi double-trigger atau memory leak
     if (jingleIntervalRef.current) {
       clearInterval(jingleIntervalRef.current);
       jingleIntervalRef.current = null;
     }
 
-    // 2. Gunakan fungsi internal pembaca REF bayangan agar tidak memicu reset siklus useEffect
     const checkAndTriggerJingle = () => {
       const isUserListening = isPlayingRef.current || isYouTubePlayingRef.current;
       if (isUserListening) {
@@ -528,7 +417,6 @@ const playJingle = useCallback(() => {
       }
     };
 
-    // 3. Pasang interval konstan untuk mengeksekusi jingle
     jingleIntervalRef.current = setInterval(checkAndTriggerJingle, JINGLE_INTERVAL);
 
     return () => {
@@ -537,8 +425,6 @@ const playJingle = useCallback(() => {
         jingleIntervalRef.current = null;
       }
     };
-    // DEPENDENSI DIKUNCI KOSONG []: Timer hanya akan dibuat 1 kali saat web di-refresh,
-    // sehingga hitungan 5 menit dijamin mengalir jujur dan tidak akan pernah ter-reset di tengah jalan!
   }, [playJingle, JINGLE_INTERVAL]);
 
   useEffect(() => {
@@ -580,7 +466,7 @@ const playJingle = useCallback(() => {
         preload="none"
         onPause={() => {
           if (!isAutoSwitchingRef.current && userStoppedRef.current && audioRef.current?.volume === 0) {
-            // Pembiaran state dikendalikan fungsi mute kita sendiri
+            // Biarkan state dikendalikan fungsi mute
           }
         }}
         onPlay={() => {
