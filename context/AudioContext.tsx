@@ -30,38 +30,11 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
-// Fungsi pembantu untuk mengubah string "HH:MM" menjadi menit total agar mudah dibandingkan
-const timeToMinutes = (timeStr: string): number => {
-  if (!timeStr) return 0;
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-// Fungsi utama menentukan acara mana yang aktif saat ini berdasarkan jam sekarang
-const getCurrentActiveSchedule = (schedules: any[]) => {
-  if (!schedules || !Array.isArray(schedules)) return null;
-  
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes(); 
-
-  for (const schedule of schedules) {
-    const start = timeToMinutes(schedule.startTime);
-    const end = timeToMinutes(schedule.endTime);
-
-    if (currentMinutes >= start && currentMinutes < end) {
-      return schedule;
-    }
-  }
-  return null;
-};
-
-// Fungsi placeholder (Pastikan fungsi ini di-import dari folder service Sanity kamu)
-async function fetchAllRadioSchedulesFromSanity() {
+// Fungsi utama: Menghubungi backend terpadu get-current-radio (Tanpa cache)
+async function fetchCurrentRadioStatusFromBackend() {
   const res = await fetch("/api/get-current-radio", { cache: "no-store" });
   if (!res.ok) throw new Error("Radio API offline");
-  const data = await res.json();
-  // Jika API kamu mengembalikan array schedule langsung, return data tersebut
-  return data?.schedules || [];
+  return await res.json();
 }
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
@@ -211,75 +184,94 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         isJinglePlayingRef.current = false;
       };
     } catch (err) {
-      console.error("Gagal memutar jingle:", err);
+      console.error("Gagal memputar jingle:", err);
       if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
       isJinglePlayingRef.current = false;
     }
-  }, []);
+  }, [JINGLE_FILE]);
 
+  // =================================================================
+  // LOGIKA BARU: KONSUMSI LANGSUNG HASIL PENYARINGAN BACKEND API
+  // =================================================================
   const fetchMetadata = useCallback(async () => {
     try {
-      // 1. Ambil seluruh data jadwal siaran dari Sanity
-      const allSchedules = await fetchAllRadioSchedulesFromSanity(); 
+      const data = await fetchCurrentRadioStatusFromBackend(); 
       
-      // 2. Cari acara apa yang harusnya aktif di JAM SEKARANG
-      const activeSchedule = getCurrentActiveSchedule(allSchedules);
-
-      // Jika tidak ada jadwal yang cocok, matikan pemutar (Offline)
-      if (!activeSchedule) {
+      // Jika backend menyatakan siaran offline/gagal muat data dokumen
+      if (!data || !data.active) {
         setIsYouTubeLive(false);
-        setMetadata({ title: "Siaran Sedang Offline", artist: "Radio Suara Al Muttaqin", art: "/bg-player.png" });
+        setMetadata({ 
+          title: data?.title || "Siaran Sedang Offline", 
+          artist: data?.artist || "Radio Suara Al Muttaqin", 
+          art: "/bg-player.png" 
+        });
         setListeners(0);
         return;
       }
 
-      // 3. KONDISI A: Jika jam sekarang adalah jadwalnya LIVE YOUTUBE
-      if (activeSchedule.broadcastMode === "youtube_live") {
+      // KONDISI A: JALUR LIVE STREAMING YOUTUBE
+      if (data.type === "youtube_live") {
         resetMp3PlaybackCompletely();
-        setYoutubeVideoId(activeSchedule.youtubeVideoId || null);
+        setYoutubeVideoId(data.youtube_video_id);
         setIsYouTubeLive(true);
         setMetadata({
-          title: activeSchedule.eventName || "Live Streaming",
-          artist: "PCM Kembaran",
-          art: `https://img.youtube.com/vi/${activeSchedule.youtubeVideoId}/hqdefault.jpg`,
+          title: data.title || "Live Streaming YouTube",
+          artist: data.artist || "PCM Kembaran",
+          art: data.thumbnail || "/bg-player.png",
         });
         setListeners(1);
         return;
       }
       
-      // 4. KONDISI B: Jika jam sekarang adalah jadwalnya PLAYLIST MP3
-      if (activeSchedule.broadcastMode === "playlist_mp3" && activeSchedule.playlist?.length > 0) {
+      // KONDISI B: JALUR PLAYLIST MP3 (SANITY ATAU FILLER)
+      if (data.type === "playlist_mp3" || data.audio_url) {
         setIsYouTubeLive(false);
-        
-        const currentTrack = activeSchedule.playlist[0]; 
+        setYoutubeVideoId(null);
         
         setMetadata({
-          title: currentTrack.trackTitle || activeSchedule.eventName,
-          artist: currentTrack.speaker || "PCM Kembaran",
-          art: "/bg-player.png",
+          title: data.title || "Radio Suara Berkemajuan",
+          artist: data.artist || "PCM Kembaran",
+          art: data.thumbnail || "/bg-player.png",
         });
 
-        if (audioRef.current && audioRef.current.src !== currentTrack.audioFileUrl) {
-          audioRef.current.src = currentTrack.audioFileUrl;
-          audioRef.current.load();
-          if (isPlayingRef.current) {
-            audioRef.current.play().catch(err => console.error("Gagal putar otomatis:", err));
+        const audio = audioRef.current;
+        if (audio && data.audio_url) {
+          // Sinkronisasi ganti lagu/source audio baru
+          if (audio.src !== data.audio_url) {
+            audio.src = data.audio_url;
+            audio.load();
+            
+            // JALANKAN CATCH-UP SEEK: Lompatkan detik player ke detik berjalan riil di server
+            if (data.elapsed_seconds && data.elapsed_seconds > 2) {
+              audio.currentTime = data.elapsed_seconds;
+            }
+
+            if (isPlayingRef.current) {
+              audio.play().catch(err => console.warn("Autoplay block protection:", err));
+            }
+          } else {
+            // JIKA URL-NYA SAMA (LAGU YANG SAMA), TERAPKAN TOLERANSI SELISIH DETEKSI DETIK (MAX SELISIH 6 DETIK)
+            // Ini untuk mencegah lagu loncat-loncat akibat delay koneksi fetch berkala
+            if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
+              audio.currentTime = data.elapsed_seconds;
+            }
           }
         }
+        
         setListeners(1);
         return;
       }
 
     } catch (error) {
-      console.error("Gagal memuat jadwal otomatis:", error);
-      setMetadata({ title: "Siaran Sedang Offline", artist: "Radio Suara Al Muttaqin", art: "/bg-player.png" });
+      console.error("Gagal sinkronisasi data stream radio:", error);
+      setMetadata({ title: "Hubungan Terputus...", artist: "Radio Suara Al Muttaqin", art: "/bg-player.png" });
       setListeners(0);
     }
   }, [resetMp3PlaybackCompletely]);
 
   useEffect(() => {
     fetchMetadata();
-    const interval = setInterval(fetchMetadata, 15000);
+    const interval = setInterval(fetchMetadata, 15000); // Polling metadata fresh per 15 detik
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
@@ -288,7 +280,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const WebAudioContext = typeof window !== "undefined" 
-        ? (window.AudioContext || (window as unknown as { webkitAudioContext: typeof globalThis.AudioContext }).webkitAudioContext) 
+        ? (window.AudioContext || (window as any).webkitAudioContext) 
         : null;
 
       if (!WebAudioContext) {
@@ -330,7 +322,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Re-trigger pengecekan jadwal saat user menekan Play secara manual
       await fetchMetadata();
     } catch {
       setHasError(true);
