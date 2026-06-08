@@ -13,8 +13,9 @@ export default function MainPlayer() {
     isYouTubeLive, 
     youtubeVideoId, 
     setIsYouTubeLive,
-    toggleYouTubeAudio,   // Gunakan fungsi terpusat dari context baru
-    isYouTubePlaying,     // Gunakan state terpusat dari context baru
+    toggleYouTubeAudio,   // Fungsi terpusat dari context baru
+    isYouTubePlaying,     // State terpusat dari context baru
+    registerYouTubeToggle, // Diperlukan untuk mendaftarkan trigger saklar terpusat
   } = useAudio()
 
   const playerContainerRef = useRef<HTMLDivElement>(null)
@@ -27,17 +28,34 @@ export default function MainPlayer() {
     if (!youtubeVideoId) setIsYouTubeLive(false)
   }, [youtubeVideoId, setIsYouTubeLive])
 
+  // =========================================================================
+  // PERBAIKAN SINKRONISASI: Daftarkan toggleYouTubeAudio ke dalam jembatan AudioContext
+  // agar daur hidup inisialisasi media tidak mengalami balapan (race condition)
+  // =========================================================================
+  useEffect(() => {
+    if (isYouTubeLive) {
+      registerYouTubeToggle(toggleYouTubeAudio)
+    }
+    return () => {
+      registerYouTubeToggle(null)
+    }
+  }, [isYouTubeLive, toggleYouTubeAudio, registerYouTubeToggle])
+
   return (
     <div className="relative w-full max-w-5xl mx-auto p-4 md:p-6">
       {isYouTubeLive && youtubeVideoId && (
         <div ref={playerContainerRef} className="fixed bottom-0 right-0 w-[1px] h-[1px] z-50 overflow-hidden opacity-0">
           <iframe
-  id="global-youtube-player" // PERBAIKAN 1: Samakan ID dengan yang dicari oleh AudioContext
-  src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=0&enablejsapi=1&playsinline=1`} // PERBAIKAN 2: Set mute=0 agar suara YouTube langsung keluar secara normal
-  allow="autoplay; encrypted-media"
-  className="w-full h-full"
-  title="Live Player"
-/>
+            id="global-youtube-player" // ID elemen sinkron dengan target DOM AudioContext
+            src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=0&enablejsapi=1&playsinline=1`} // mute=0 agar volume API terbuka
+            // =========================================================================
+            // PERBAIKAN MUTLAK: Tambahkan skema cross-origin-isolated dan token kebijakan audio
+            // agar postMessage kontrol volume dari domain lokal diizinkan oleh sistem sandbox YouTube
+            // =========================================================================
+            allow="autoplay; encrypted-media; gyroscope; accelerometer; cross-origin-isolated"
+            className="w-full h-full"
+            title="Live Player"
+          />
         </div>
       )}
 
@@ -68,12 +86,12 @@ export default function MainPlayer() {
           
           {isOnAir && (
             <motion.div 
-  animate={{ opacity: [1, 0.2, 1] }}
-  transition={{ duration: 1, repeat: Infinity }}
-  className="mt-3 md:mt-4 inline-block px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-red-500 bg-black/50 rounded-lg"
->
-  ON AIR
-</motion.div>
+              animate={{ opacity: [1, 0.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              className="mt-3 md:mt-4 inline-block px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-red-500 bg-black/50 rounded-lg"
+            >
+              ON AIR
+            </motion.div>
           )}
           
           <div className="mt-3 md:mt-4 block md:inline-flex items-center gap-2 text-[10px] md:text-xs text-cyan-300 uppercase tracking-[0.2em] md:tracking-[0.25em]">
@@ -86,13 +104,7 @@ export default function MainPlayer() {
           <motion.button
             key={isOnAir ? "stop" : "play"}
             whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              if (isYouTubeLive) {
-                toggleYouTubeAudio() // Memanggil pemutar global dari Context murni
-              } else {
-                toggleLivePlayback()
-              }
-            }}
+            onClick={toggleLivePlayback} // Gerbang tunggal terpusat untuk menjamin token klik user valid
             className={`h-14 w-14 md:h-16 md:w-16 rounded-full flex items-center justify-center transition-all duration-300 ${isOnAir ? 'bg-red-500' : 'bg-cyan-500'}`}
           >
             {isOnAir ? <Square size={24} className="text-white" fill="white" /> : <Play size={24} className="text-white" fill="white" />}

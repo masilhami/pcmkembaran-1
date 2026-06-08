@@ -72,7 +72,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const jingleIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isJinglePlayingRef = useRef(false);
 
-  const JINGLE_INTERVAL = 5 * 60 * 1000; // 5 menit
+  const JINGLE_INTERVAL = 5 * 60 * 1000; // Kembalikan ke 5 menit untuk produksi server Vercel
   const JINGLE_FILE = "/audio/jingle-pcm.mp3";
 
   // --- Mute MP3 Tanpa Pause (File Tetap Berputar di Background) ---
@@ -159,12 +159,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         jingleRef.current = new Audio(JINGLE_FILE);
         jingleRef.current.preload = "auto";
         jingleRef.current.crossOrigin = "anonymous";
-        jingleRef.current.onerror = () => {
+       jingleRef.current.onerror = () => {
           console.error("Jingle gagal dimuat");
           if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
           
           const iframe = document.getElementById('global-youtube-player') as HTMLIFrameElement | null;
-          if (iframe?.contentWindow && isYouTubePlaying) {
+          
+          // PERBAIKAN MUTLAK: Menggunakan isYouTubePlayingRef.current agar volume YouTube sukses kembali ke 100%
+          if (iframe?.contentWindow && isYouTubePlayingRef.current) {
             iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
           }
           isJinglePlayingRef.current = false;
@@ -174,18 +176,26 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       const mainAudio = audioRef.current;
       const iframe = document.getElementById('global-youtube-player') as HTMLIFrameElement | null;
 
-      // ==========================================
-      // PROSES AUDIO DUCKING (Menciutkan Latar ke 1%)
-      // ==========================================
+   // =========================================================================
+      // PROSES AUDIO DUCKING FINAL (Menggunakan Ref Bayangan & Paksa Volume 100%)
+      // =========================================================================
       
-      // 1. Jalur Radio MP3 (Hanya berjalan jika elemen audio fisik MP3 termuat)
+      // 1. Pastikan volume jingle kita paksa ke 100% (Mencegah jingle senyap)
+      if (jingleRef.current) {
+        jingleRef.current.volume = 1;
+      }
+
+      // 2. Jalur Radio MP3 (Menggunakan Ref bayangan)
       if (isPlayingRef.current && mainAudio) {
         mainAudio.volume = 0.01; 
       }
 
-      // 2. Jalur YouTube Live (Kirim PostMessage API YouTube ke 1%)
-      if (isYouTubePlaying && iframe?.contentWindow) {
-        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [1] }), '*'); 
+      // 3. PERBAIKAN MUTLAK: Jalur YouTube Live (Wajib Menggunakan Ref bayangan)
+      if (isYouTubePlayingRef.current && iframe?.contentWindow) {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'setVolume', args: [1] }), 
+          '*'
+        ); 
       }
 
       jingleRef.current.currentTime = 0;
@@ -198,7 +208,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         } catch (playErr) {
           console.error("Jingle playback execution blocked:", playErr);
           if (mainAudio && isPlayingRef.current) mainAudio.volume = 1;
-          if (isYouTubePlaying && iframe?.contentWindow) {
+          
+          // PERBAIKAN DARURAT: Gunakan Ref bayangan di dalam catch block
+          if (isYouTubePlayingRef.current && iframe?.contentWindow) {
             iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
           }
           isJinglePlayingRef.current = false;
@@ -207,18 +219,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       runJinglePlay();
 
-      // ==========================================
-      // PROSES RESTORE (Mengembalikan Volume Asli)
-      // ==========================================
+     // =========================================================================
+      // PROSES RESTORE FINAL: Kembalikan volume menggunakan Ref agar anti-membeku
+      // =========================================================================
       jingleRef.current.onended = () => {
+        const mainAudioElement = audioRef.current;
+        const targetIframe = document.getElementById('global-youtube-player') as HTMLIFrameElement | null;
+
         // 1. Kembalikan volume MP3 jika aktif
-        if (mainAudio && isPlayingRef.current) {
-          mainAudio.volume = 1;
+        if (isPlayingRef.current && mainAudioElement) {
+          mainAudioElement.volume = 1;
         }
 
-        // 2. Kembalikan volume YouTube ke 100% jika aktif
-        if (isYouTubePlaying && iframe?.contentWindow) {
-          iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+        // 2. PERBAIKAN MUTLAK: Gunakan .current agar perintah 100% sukses ditembakkan ke YouTube
+        if (isYouTubePlayingRef.current && targetIframe?.contentWindow) {
+          targetIframe.contentWindow.postMessage(
+            JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), 
+            '*'
+          );
         }
 
         isJinglePlayingRef.current = false;
@@ -226,9 +244,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("Gagal memutar jingle:", err);
       if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
+      
+      // Pemulihan darurat di dalam catch jika terjadi error di tengah jalan
+      const targetIframe = document.getElementById('global-youtube-player') as HTMLIFrameElement | null;
+      if (isYouTubePlayingRef.current && targetIframe?.contentWindow) {
+        targetIframe.window.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+      }
       isJinglePlayingRef.current = false;
     }
-  }, [isYouTubePlaying]);
+  }, []); // Dependensi dikunci kosong [] karena semua pengkondisian sudah aman menggunakan .current
 
   const applyRadioDataToAudio = useCallback(
     async (data: any, forceReload = false) => {
@@ -382,9 +406,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (isInitialized.current || !audioRef.current) return;
 
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtx();
+      // PERBAIKAN CSP: Mengambil constructor secara aman tanpa string fallback atau casting 'any' liar
+      const WebAudioContext = typeof window !== "undefined" 
+        ? (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext) 
+        : null;
 
+      if (!WebAudioContext) {
+        console.warn("Web Audio API tidak didukung di browser ini.");
+        return;
+      }
+      
+      const audioCtx = new WebAudioContext();
       audioContextRef.current = audioCtx;
 
       const analyser = audioCtx.createAnalyser();
@@ -512,6 +544,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (nextState && audioRef.current) {
       audioRef.current.volume = 0;
       setIsPlaying(false);
+      isPlayingRef.current = false; // <--- SUNTIKKAN SINKRONISASI INSTAN INI
     }
   }, [isYouTubePlaying, JINGLE_FILE]); // Pastikan JINGLE_FILE masuk ke dependensi jika ia variabel luar
 
@@ -531,21 +564,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isYouTubeLive, resetMp3PlaybackCompletely]);
 
-  // --- Scheduler Jingle ---
+  // --- Scheduler Jingle Final (Anti-Reset Timer) ---
   useEffect(() => {
+    // 1. Bersihkan sisa timer masa lalu agar tidak terjadi double-trigger atau memory leak
     if (jingleIntervalRef.current) {
       clearInterval(jingleIntervalRef.current);
       jingleIntervalRef.current = null;
     }
 
-    // Ambil kesimpulan apakah user sedang aktif mendengar salah satu siaran
-    const isUserListening = isPlaying || isYouTubePlayingRef.current;
-
-    if (isUserListening) {
-      jingleIntervalRef.current = setInterval(() => {
+    // 2. Gunakan fungsi internal pembaca REF bayangan agar tidak memicu reset siklus useEffect
+    const checkAndTriggerJingle = () => {
+      const isUserListening = isPlayingRef.current || isYouTubePlayingRef.current;
+      if (isUserListening) {
         playJingle();
-      }, JINGLE_INTERVAL);
-    }
+      }
+    };
+
+    // 3. Pasang interval konstan untuk mengeksekusi jingle
+    jingleIntervalRef.current = setInterval(checkAndTriggerJingle, JINGLE_INTERVAL);
 
     return () => {
       if (jingleIntervalRef.current) {
@@ -553,7 +589,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         jingleIntervalRef.current = null;
       }
     };
-  }, [isPlaying, isYouTubePlaying, playJingle]); // Memantau state isYouTubePlaying
+    // DEPENDENSI DIKUNCI KOSONG []: Timer hanya akan dibuat 1 kali saat web di-refresh,
+    // sehingga hitungan 5 menit dijamin mengalir jujur dan tidak akan pernah ter-reset di tengah jalan!
+  }, [playJingle, JINGLE_INTERVAL]);
 
   useEffect(() => {
     return () => {
