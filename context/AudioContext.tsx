@@ -142,12 +142,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     youtubeToggleRef.current = handler;
   }, []);
 
-  const playJingle = useCallback(() => {
+ const playJingle = useCallback(() => {
     try {
+      // Jingle diizinkan berputar jika user sedang aktif mendengar MP3 ATAU Live YouTube
+      const isUserListening = isPlayingRef.current || isYouTubePlaying;
+      
       if (
         !audioRef.current ||
-        !isPlayingRef.current ||
-        isYouTubeLive ||
+        !isUserListening ||
         isJinglePlayingRef.current
       ) {
         return;
@@ -161,16 +163,35 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         jingleRef.current.crossOrigin = "anonymous";
         jingleRef.current.onerror = () => {
           console.error("Jingle gagal dimuat");
+          // Reset volume audio MP3 jika aktif
           if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
+          
+          // Reset volume YouTube ke 100% jika aktif dan terjadi error pada jingle
+          const iframe = document.getElementById('global-youtube-player') as HTMLIFrameElement | null;
+          if (iframe?.contentWindow && isYouTubePlaying) {
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+          }
           isJinglePlayingRef.current = false;
         };
       }
 
       const mainAudio = audioRef.current;
-      const originalVolume = mainAudio.volume;
+      const iframe = document.getElementById('global-youtube-player') as HTMLIFrameElement | null;
 
-      // Hanya ducking jingle jika radio sedang tidak dalam posisi di-mute user
-      mainAudio.volume = originalVolume > 0 ? 0.25 : 0; 
+      // ==========================================
+      // PROSES AUDIO DUCKING (Mengecilkan Latar)
+      // ==========================================
+      
+      // 1. Jalur Radio MP3
+      if (isPlayingRef.current) {
+        mainAudio.volume = 0.01; // Turunkan volume MP3 ke 1% (0.01)
+      }
+
+      // 2. Jalur YouTube Live (Kirim PostMessage API YouTube)
+      if (isYouTubePlaying && iframe?.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [1] }), '*'); // Turunkan volume YouTube ke 1%
+      }
+
       jingleRef.current.currentTime = 0;
 
       const runJinglePlay = async () => {
@@ -180,15 +201,29 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (playErr) {
           console.error("Jingle playback execution blocked:", playErr);
-          if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
+          // Pemulihan darurat jika pemutaran diblokir kebijakan browser
+          if (mainAudio) mainAudio.volume = isPlayingRef.current ? 1 : 0;
+          if (isYouTubePlaying && iframe?.contentWindow) {
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+          }
           isJinglePlayingRef.current = false;
         }
       };
 
       runJinglePlay();
 
+      // ==========================================
+      // PROSES RESTORE (Mengembalikan Volume Asli)
+      // ==========================================
       jingleRef.current.onended = () => {
+        // 1. Kembalikan volume MP3 jika aktif
         mainAudio.volume = isPlayingRef.current ? 1 : 0;
+
+        // 2. Kembalikan volume YouTube ke 100% jika aktif
+        if (isYouTubePlaying && iframe?.contentWindow) {
+          iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+        }
+
         isJinglePlayingRef.current = false;
       };
     } catch (err) {
@@ -196,7 +231,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       if (audioRef.current) audioRef.current.volume = isPlayingRef.current ? 1 : 0;
       isJinglePlayingRef.current = false;
     }
-  }, [isYouTubeLive]);
+  }, [isYouTubePlaying]);
 
   const applyRadioDataToAudio = useCallback(
     async (data: any, forceReload = false) => {
