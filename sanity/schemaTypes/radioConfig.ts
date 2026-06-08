@@ -26,7 +26,7 @@ export default {
       title: 'Nama Stasiun Radio',
       type: 'string',
       fieldset: 'stationMetadata',
-      initialValue: 'Radio Suara Al Muttaqin',
+      initialValue: 'Radio Suara Berkemajuan',
       validation: (rule: Rule) => rule.required().min(3).max(50),
     },
     {
@@ -107,7 +107,7 @@ export default {
                   { title: '🎥 Live Streaming YouTube API', value: 'youtube_live' },
                   { title: '🎵 Playlist Audio MP3 Cloud', value: 'playlist_mp3' },
                 ],
-                layout: 'radio', // Tampilan bergaya saklar opsi bulat (lebih cantik)
+                layout: 'radio', 
               },
               initialValue: 'playlist_mp3',
               validation: (rule: Rule) => rule.required(),
@@ -143,7 +143,9 @@ export default {
               hidden: ({ parent }: any) => parent?.broadcastMode !== 'playlist_mp3',
               validation: (rule: Rule) =>
                 rule.custom((value, context: any) => {
-                  if (context.parent?.broadcastMode === 'playlist_mp3' && (!value || value.length === 0)) {
+                  // TYPE FIX: Casting ke array untuk menghindari error strict type check di Next.js
+                  const tracks = value as any[];
+                  if (context.parent?.broadcastMode === 'playlist_mp3' && (!tracks || tracks.length === 0)) {
                     return 'Minimal unggah 1 file audio MP3 ke dalam playlist antrean.';
                   }
                   return true;
