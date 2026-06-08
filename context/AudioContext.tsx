@@ -45,6 +45,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // isPlaying mendeskripsikan status "apakah suara radio aktif didengar user"
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
+  const isYouTubePlayingRef = useRef(false);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -145,7 +146,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
  const playJingle = useCallback(() => {
     try {
       // Jingle diizinkan berputar jika user sedang aktif mendengar MP3 ATAU Live YouTube
-      const isUserListening = isPlayingRef.current || isYouTubePlaying;
+      const isUserListening = isPlayingRef.current || isYouTubePlayingRef.current;
       
       // PERBAIKAN MUTLAK: Buang pengecekan !audioRef.current agar jingle tidak mati saat mode YouTube aktif
       if (!isUserListening || isJinglePlayingRef.current) {
@@ -479,13 +480,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
  // --- FUNGSI GLOBAL UNTUK MENGONTROL YOUTUBE DARI MANA SAJA ---
  const toggleYouTubeAudio = useCallback(() => {
     // 1. Ambil status kebalikan dari yang sekarang berjalan
-    const nextState = !isYouTubePlaying;
+    const nextState = !isYouTubePlayingRef.current;
 
     // 2. Tembakkan instruksi fisik ke iframe melalui event global
     window.dispatchEvent(new CustomEvent("toggle-yt-player"));
 
     // 3. Paksa mutasi state di level Context secara instan agar memicu re-render global
     setIsYouTubePlaying(nextState);
+	isYouTubePlayingRef.current = nextState;
 
     // 4. Broadcast event untuk cadangan sinkronisasi komponen lawas
     window.dispatchEvent(new CustomEvent("yt-status-change", { detail: nextState }));
@@ -517,6 +519,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const syncStatusFromEvent = (e: any) => {
       setIsYouTubePlaying(e.detail);
+      isYouTubePlayingRef.current = e.detail; // <--- SUNTIKKAN SINKRONISASI INI JUGA!
     };
     window.addEventListener("yt-status-change", syncStatusFromEvent);
     return () => window.removeEventListener("yt-status-change", syncStatusFromEvent);
@@ -535,7 +538,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       jingleIntervalRef.current = null;
     }
 
-    if (isPlaying && !isYouTubeLive) {
+    // Ambil kesimpulan apakah user sedang aktif mendengar salah satu siaran
+    const isUserListening = isPlaying || isYouTubePlayingRef.current;
+
+    if (isUserListening) {
       jingleIntervalRef.current = setInterval(() => {
         playJingle();
       }, JINGLE_INTERVAL);
@@ -547,7 +553,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         jingleIntervalRef.current = null;
       }
     };
-  }, [isPlaying, isYouTubeLive, playJingle]);
+  }, [isPlaying, isYouTubePlaying, playJingle]); // Memantau state isYouTubePlaying
 
   useEffect(() => {
     return () => {
