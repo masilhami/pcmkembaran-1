@@ -64,10 +64,9 @@ export default function BottomPlayer() {
 
           {/* status indicator */}
           <div className="mt-1 flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${isOnAir ? 'bg-red-500 animate-pulse' : 'bg-slate-500'}`} />
             <span className="text-[10px] uppercase tracking-widest text-slate-400">
-              {isOnAir ? (isYouTubeLive ? 'LIVE YOUTUBE' : 'ON AIR') : 'Paused'}
-            </span>
+  {isOnAir ? 'ON AIR' : 'Paused'}
+</span>
           </div>
         </div>
 

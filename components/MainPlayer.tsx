@@ -68,12 +68,12 @@ export default function MainPlayer() {
           
           {isOnAir && (
             <motion.div 
-              animate={{ opacity: [1, 0.2, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-              className="mt-3 md:mt-4 inline-block px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-red-500 bg-black/50 rounded-lg"
-            >
-              {isYouTubeLive ? 'LIVE YOUTUBE' : 'ON AIR'}
-            </motion.div>
+  animate={{ opacity: [1, 0.2, 1] }}
+  transition={{ duration: 1, repeat: Infinity }}
+  className="mt-3 md:mt-4 inline-block px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-red-500 bg-black/50 rounded-lg"
+>
+  ON AIR
+</motion.div>
           )}
           
           <div className="mt-3 md:mt-4 block md:inline-flex items-center gap-2 text-[10px] md:text-xs text-cyan-300 uppercase tracking-[0.2em] md:tracking-[0.25em]">

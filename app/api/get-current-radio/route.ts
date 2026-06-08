@@ -120,8 +120,8 @@ export async function GET() {
         const videoId = config.youtubeVideoId.trim();
         return NextResponse.json({
           active: true,
-          title: "YouTube Live Streaming",
-          program_title: "YouTube Live",
+          title: "Radio Suara Berkemajuan",
+          program_title: "PCM KEMBARAN",
           audio_url: `https://www.youtube.com/watch?v=${videoId}`,
           youtube_video_id: videoId,
           thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
