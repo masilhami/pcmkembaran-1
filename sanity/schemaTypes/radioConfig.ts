@@ -191,12 +191,13 @@ export default {
                     { name: 'trackTitle', title: 'Judul Audio', type: 'string', validation: (rule: Rule) => rule.required().error('Judul track audio tidak boleh kosong.') },
                     { name: 'speaker', title: 'Narasumber / Pengisi', type: 'string' },
                     { 
-                      name: 'audioFile', 
-                      title: 'Upload File MP3', 
-                      type: 'file',
-                      options: { accept: 'audio/mp3, audio/mpeg' },
-                      validation: (rule: Rule) => rule.required().error('Wajib mengunggah file MP3 untuk track ini.')
-                    },
+  name: 'audioFile', 
+  title: 'Upload File Audio', 
+  type: 'file',
+  // 👇 UPDATE BARIS INI: Tambahkan mime type untuk m4a/aac
+  options: { accept: 'audio/mp3, audio/mpeg, audio/m4a, audio/x-m4a, audio/aac' },
+  validation: (rule: Rule) => rule.required().error('Wajib mengunggah file audio.')
+},
                   ],
                   preview: {
                     select: {
