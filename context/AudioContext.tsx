@@ -72,7 +72,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const isJinglePlayingRef = useRef(false);
 
   const JINGLE_INTERVAL = 5 * 60 * 1000; // 5 menit
-  const JINGLE_FILE = "https://sdit.my.id/radio/jingle.mp3";
+  const JINGLE_FILE = "/audio/jingle-pcm.mp3";
 
   // --- Mute MP3 Tanpa Pause (File Tetap Berputar di Background) ---
   const stopMp3Playback = useCallback(() => {
