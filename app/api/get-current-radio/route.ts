@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"; // Memaksa API selalu fresh tanpa membek
 // =================================================================
 // 1. KONFIGURASI JINGLE OTOMATIS
 // =================================================================
-const JINGLE_URL = "https://ia600408.us.archive.org/15/items/jingle-pcm/jingle-pcm.mp3";
+const JINGLE_URL = "/audio/jingle-pcm.mp3";
 const JINGLE_DURATION = 25;
 
 // =================================================================
