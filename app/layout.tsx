@@ -7,7 +7,6 @@ import "./globals.css";
 import RootClient from '@/components/RootClient';
 import LayoutWrapper from "@/components/LayoutWrapper";
 import InstallationTracker from "@/components/InstallationTracker"; 
-import BottomPlayer from '@/components/BottomPlayer';
 import YouTubeManager from '@/components/YouTubeManager';
 import { AudioProvider } from '@/context/AudioContext';
 
@@ -89,15 +88,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <InstallationTracker />
           </div>
 
-          {/* LAYOUT WRAPPER */}
+          {/* LAYOUT WRAPPER: Sekarang memegang kendali penuh atas Header, Footer, & BottomPlayer */}
           <LayoutWrapper>
             <main style={{ flex:1, position:'relative', zIndex:1 }}>
               {children}
             </main>
           </LayoutWrapper>
 
-          {/* Bottom Player */}
-          <BottomPlayer />
         </AudioProvider>
       </body>
     </html>
