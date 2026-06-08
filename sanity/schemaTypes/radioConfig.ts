@@ -17,4 +17,21 @@ export default {
       hidden: ({ document }: { document: any }) => !document?.isYouTubeLive, // otomatis sembunyi jika saklar OFF
     },
   ],
+  // =========================================================================
+  // PERBAIKAN UTAMA: Mengatur Judul Tampilan List Agar Tidak Muncul ID Dokumen
+  // =========================================================================
+  preview: {
+    select: {
+      isLive: 'isYouTubeLive',
+    },
+    prepare(selection: { isLive: boolean }) {
+      const { isLive } = selection;
+      return {
+        // Mengunci judul utama list menggunakan Nama Channel / Stasiun Radio Anda
+        title: 'PCM Kembaran', 
+        // Subtitle dinamis untuk memberikan info cepat di panel navigasi kiri
+        subtitle: isLive ? '🔴 LIVE YOUTUBE AKTIF' : '📻 MODE STREAMING MP3',
+      };
+    },
+  },
 }
