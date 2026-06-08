@@ -12,23 +12,18 @@ const MainPlayerNoSSR = dynamic(() => import('@/components/MainPlayer'), {
 
 export default function RadioPage() {
   return (
-    // PERBAIKAN: Menggunakan background berpola biru gelap islami yang elegan
-    <main className="min-h-screen text-slate-100 selection:bg-cyan-500/30 relative overflow-hidden">
+    // PERBAIKAN MUTLAK: Gambar dipasang langsung di tag main menggunakan bg-fixed & beralih ke relative.
+    // Ini mengunci background agar HANYA berada di area konten radio dan tidak menabrak header/footer web utama.
+    <main 
+      className="min-h-screen text-slate-100 selection:bg-cyan-500/30 relative bg-cover bg-center bg-no-repeat bg-fixed"
+      style={{ 
+        backgroundImage: "linear-gradient(to bottom, rgba(15, 23, 42, 0.4) 0%, rgba(0, 0, 0, 0.7) 100%), radial-gradient(circle at center, transparent 20%, rgba(0, 0, 0, 0.6) 100%), url('/images/bg-pattern.png')",
+      }}
+    >
       
       {/* =========================================================================
-          BACKGROUND PATTERN & VIGNETTE EFFECT
+          BACKGROUND DECOR LAMA DIHAPUS TOTAL AGAR TIDAK BOCOR KE LAYOUT LUAR
           ========================================================================= */}
-      <div 
-        className="fixed inset-0 overflow-hidden pointer-events-none z-0 bg-cover bg-center bg-no-repeat"
-        style={{ 
-          // Masukkan file gambar pola ornamen biru Anda ke folder public (misal: /images/bg-pattern.png)
-          backgroundImage: "url('/images/bg-pattern.png')", 
-        }}
-      >
-        {/* Lapisan overlay gelap/vignette lembut agar teks dan player tetap sangat kontras dan terbaca */}
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-950/40 via-black/20 to-black/60 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_20%,_rgba(0,0,0,0.6)_100%)]" />
-      </div>
 
       {/* CONTAINER KONTEN UTAMA */}
       <div className="container mx-auto px-6 py-12 relative z-10">
