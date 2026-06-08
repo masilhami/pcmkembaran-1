@@ -354,9 +354,9 @@ const playJingle = useCallback(() => {
     if (isInitialized.current || !audioRef.current) return;
 
     try {
-      // PERBAIKAN CSP: Mengambil constructor secara aman tanpa string fallback atau casting 'any' liar
+      // PERBAIKAN TS & CSP: Gunakan globalThis.AudioContext agar tidak bentrok dengan nama AudioContext milik React
       const WebAudioContext = typeof window !== "undefined" 
-        ? (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext) 
+        ? (window.AudioContext || (window as unknown as { webkitAudioContext: typeof globalThis.AudioContext }).webkitAudioContext) 
         : null;
 
       if (!WebAudioContext) {
