@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { client } from "@/lib/sanity.client"; // Pastikan path impor client Sanity Anda benar
+
+export const dynamic = "force-dynamic"; // Memaksa API selalu fresh tanpa membeku di cache Vercel
 
 // =================================================================
 // 1. KONFIGURASI JINGLE OTOMATIS
@@ -53,7 +56,7 @@ const TOTAL_FILLER_DURATION = FILLER_PLAYLIST.reduce(
   0
 );
 
-function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Al Muttaqin") {
+function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Berkemajuan") {
   if (!audioUrl) return fallback;
 
   try {
@@ -67,17 +70,15 @@ function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Al Muttaqi
   }
 }
 
-// Fungsi virtual timeline disempurnakan agar rotasi playlist filler melompat mulus
 function getVirtualFillerTrack(gapSeconds: number) {
   if (TOTAL_FILLER_DURATION <= 0) {
     return {
-      title: "Radio Suara Al Muttaqin",
+      title: "Radio Suara Berkemajuann",
       audio_url: "",
       elapsed_seconds: 0,
     };
   }
 
-  // Menggunakan Math.abs menghindari nilai negatif jika ada ketidakcocokan waktu server
   const virtualTimeline = Math.floor(Math.abs(gapSeconds)) % TOTAL_FILLER_DURATION;
   let accumulatedTime = 0;
 
@@ -99,49 +100,9 @@ function getVirtualFillerTrack(gapSeconds: number) {
   };
 }
 
-async function getYouTubeLiveFromChannel() {
-  const channelId = process.env.YOUTUBE_CHANNEL_ID || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || "";
-  const apiKey = process.env.YOUTUBE_API_KEY || process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "";
-  console.log("YOUTUBE CHANNEL:", channelId);
-  console.log("YOUTUBE API:", apiKey ? "ADA" : "KOSONG");
-
-  if (!channelId || !apiKey) return null;
-
-  try {
-    const url = new URL("https://www.googleapis.com/youtube/v3/search");
-    url.searchParams.set("part", "snippet");
-    url.searchParams.set("channelId", channelId);
-    url.searchParams.set("eventType", "live");
-    url.searchParams.set("type", "video");
-    url.searchParams.set("maxResults", "1");
-    url.searchParams.set("key", apiKey);
-
-    const res = await fetch(url.toString(), { next: { revalidate: 30 } });
-
-console.log("YT STATUS:", res.status);
-
-const data = await res.json();
-
-console.log("YT RESPONSE:", JSON.stringify(data, null, 2));
-    if (!res.ok) return null;
-
-    
-    const item = data.items?.[0];
-    const videoId = item?.id?.videoId;
-
-    if (!videoId) return null;
-
-    return {
-      videoId,
-      title: item.snippet?.title || "YouTube Live Streaming",
-      thumbnail: item.snippet?.thumbnails?.high?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-      url: `https://www.youtube.com/watch?v=${videoId}`,
-    };
-  } catch {
-    return null;
-  }
-}
-
+// =================================================================
+// MAIN HANDLER GET
+// =================================================================
 export async function GET() {
   try {
     const now = new Date();
@@ -149,83 +110,29 @@ export async function GET() {
     const currentSecond = now.getSeconds();
 
     // =================================================================
-    // 0. PRIORITAS UTAMA: DETEKSI YOUTUBE LIVE
+    // 0. PRIORITAS UTAMA: DETEKSI LIVE DARI SANITY CMS (NOL TOKEN API)
     // =================================================================
-    const forceYoutube =
-  process.env.YOUTUBE_LIVE === "1";
+    try {
+      const sanityQuery = `*[_type == "radioConfig"][0] { isYouTubeLive, youtubeVideoId }`;
+      const config = await client.fetch(sanityQuery, {}, { cache: 'no-store' });
 
-if (forceYoutube) {
-
-  const liveUrl =
-    process.env.YOUTUBE_LIVE_URL || "";
-
-  let videoId = "";
-
-  try {
-    const url = new URL(liveUrl);
-    videoId = url.searchParams.get("v") || "";
-  } catch {}
-
-  return NextResponse.json({
-    active: true,
-    title: "YouTube Live Streaming",
-    program_title: "YouTube Live",
-    audio_url: liveUrl,
-    youtube_video_id: videoId,
-    thumbnail:
-      `https://i.ytimg.com/vi/${videoId}/hqdefault_live.jpg`,
-    elapsed_seconds: 0,
-    type: "youtube_live",
-  });
-}
-
-const youtubeLive =
-  await getYouTubeLiveFromChannel();
-
-if (youtubeLive) {
-return NextResponse.json({
-active: true,
-title: youtubeLive.title,
-program_title: "YouTube Live",
-audio_url: youtubeLive.url,
-youtube_video_id: youtubeLive.videoId,
-thumbnail: youtubeLive.thumbnail,
-elapsed_seconds: 0,
-type: "youtube_live",
-});
-}
-
-
-    // Fallback Manual YouTube Live
-    const isManualYouTubeLive = process.env.YOUTUBE_LIVE === "1";
-    const manualYouTubeLiveUrl = process.env.YOUTUBE_LIVE_URL || "";
-   if (isManualYouTubeLive && manualYouTubeLiveUrl) {
-let videoId = null;
-
-try {
-  const url = new URL(manualYouTubeLiveUrl);
-
-  if (url.hostname.includes("youtu.be")) {
-    videoId = url.pathname.replace("/", "");
-  } else {
-    videoId = url.searchParams.get("v");
-  }
-} catch {}
-
-return NextResponse.json({
-active: true,
-title: "YouTube Live Streaming",
-program_title: "YouTube Live",
-audio_url: manualYouTubeLiveUrl,
-youtube_video_id: videoId,
-thumbnail: videoId
-? `https://i.ytimg.com/vi/${videoId}/hqdefault_live.jpg`
-: null,
-elapsed_seconds: 0,
-type: "youtube_live",
-});
-}
-
+      if (config?.isYouTubeLive && config?.youtubeVideoId) {
+        const videoId = config.youtubeVideoId.trim();
+        return NextResponse.json({
+          active: true,
+          title: "YouTube Live Streaming",
+          program_title: "YouTube Live",
+          audio_url: `https://www.youtube.com/watch?v=${videoId}`,
+          youtube_video_id: videoId,
+          thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+          elapsed_seconds: 0,
+          type: "youtube_live",
+        });
+      }
+    } catch (sanityError) {
+      console.error("Gagal membaca konfigurasi Live dari Sanity:", sanityError);
+      // Jika Sanity bermasalah, biarkan kode berlanjut ke fallback MP3 di bawahnya
+    }
 
     // =================================================================
     // A. JINGLE TIAP 5 MENIT (Hanya memotong jika durasi jingle valid)
@@ -233,8 +140,8 @@ type: "youtube_live",
     if (currentMinute % 5 === 0 && currentMinute !== 0 && currentSecond < JINGLE_DURATION) {
       return NextResponse.json({
         active: true,
-        title: titleFromAudioUrl(JINGLE_URL, "Jingle Suara Al Muttaqin"),
-        program_title: "Jingle Suara Al Muttaqin",
+        title: titleFromAudioUrl(JINGLE_URL, "Jingle Suara Berkemajuan"),
+        program_title: "Jingle Suara Berkemajuan",
         audio_url: JINGLE_URL,
         elapsed_seconds: currentSecond,
         type: "jingle",
@@ -242,9 +149,8 @@ type: "youtube_live",
     }
 
     // =================================================================
-    // B. AMBIL JADWAL UTAMA YANG AKTIF SAAT INI (Ditambahkan Filter Waktu)
+    // B. AMBIL JADWAL UTAMA YANG AKTIF SAAT INI
     // =================================================================
-    // Kita ambil track yang paling baru dibuat atau yang sedang berjalan.
     const currentTrack = await prisma.radioStream.findFirst({
       orderBy: {
         start_time: "desc",
@@ -252,7 +158,7 @@ type: "youtube_live",
     });
 
     // =================================================================
-    // C. JIKA TIDAK ADA JADWAL UTAMA SAMA SEKALI, PUTAR FILLER BERDASARKAN TIMESTAMP SEKARANG
+    // C. JIKA TIDAK ADA JADWAL UTAMA SAMA SEKALI, PUTAR FILLER
     // =================================================================
     if (!currentTrack) {
       const nowTimestampSeconds = Math.floor(Date.now() / 1000);
@@ -274,11 +180,9 @@ type: "youtube_live",
     const allowedDuration = currentTrack.duration;
 
     // =================================================================
-    // D. JIKA AUDIO UTAMA MELEBIHI JATAH SLOT / SELESAI -> LONCAT SEAMLESS KE FILLER
+    // D. JIKA AUDIO UTAMA MELEBIHI JATAH SLOT / SELESAI -> FILLER SEAMLESS
     // =================================================================
     if (elapsedSeconds >= allowedDuration) {
-      // Supaya lompatannya continue dan berputar terus mengikuti timeline waktu berjalan global,
-      // kita gabungkan sisa gap waktu dengan timestamp saat ini agar rotasi playlist terus bergerak maju.
       const gapSeconds = elapsedSeconds - allowedDuration;
       const totalTimelineSeconds = Math.floor(startTime / 1000) + allowedDuration + gapSeconds;
       
@@ -305,6 +209,7 @@ type: "youtube_live",
       elapsed_seconds: elapsedSeconds,
       type: "main",
     });
+
   } catch (error: any) {
     console.error("Gagal memuat get-current-radio:", error);
     const fallbackSeconds = Math.floor(Date.now() / 1000);
