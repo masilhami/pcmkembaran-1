@@ -8,8 +8,11 @@ import profile from './profile'
 import pimpinan from './pimpinan' 
 import installations from './installations' 
 import youtube from './youtube'
-// 1. Impor skema jadwalKajian yang baru
-import jadwalKajian from './jadwalKajian' // <-- TAMBAHKAN INI
+import jadwalKajian from './jadwalKajian'
+// =========================================================================
+// INTERVENSI DASHBOARD: Impor skema konfigurasi radio & live terpusat yang baru
+// =========================================================================
+import radioConfig from './radioConfig' // <-- TAMBAHKAN IMPORT INI
 
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
@@ -22,8 +25,11 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     download,      // File Download
     installations, // Registrasi data aplikasi
     youtube,       // Objek Youtube
+    jadwalKajian,  // Jadwal Kajian
     
-    // 2. Registrasi skema Jadwal Kajian agar aktif
-    jadwalKajian,  // <-- TAMBAHKAN DI SINI
+    // =========================================================================
+    // REGISTRASI MODUL: Masukkan skema radioConfig agar aktif di Sanity Studio
+    // =========================================================================
+    radioConfig,   // <-- TAMBAHKAN DI SINI
   ],
 }
