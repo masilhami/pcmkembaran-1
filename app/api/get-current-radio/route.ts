@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { client } from "@/lib/sanity.client"; // Pastikan path impor client Sanity Anda benar
+import { client } from "@/lib/sanity.client"; // Dipertahankan sesuai path impor client Sanity Anda
 
 export const dynamic = "force-dynamic"; // Memaksa API selalu fresh tanpa membeku di cache Vercel
 
@@ -56,6 +56,13 @@ const TOTAL_FILLER_DURATION = FILLER_PLAYLIST.reduce(
   0
 );
 
+// Fungsi pembantu mengubah string "HH:MM" menjadi total menit
+const timeToMinutes = (timeStr: string): number => {
+  if (!timeStr) return 0;
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
 function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Berkemajuan") {
   if (!audioUrl) return fallback;
 
@@ -73,7 +80,7 @@ function titleFromAudioUrl(audioUrl?: string, fallback = "Radio Suara Berkemajua
 function getVirtualFillerTrack(gapSeconds: number) {
   if (TOTAL_FILLER_DURATION <= 0) {
     return {
-      title: "Radio Suara Berkemajuann",
+      title: "Radio Suara Berkemajuan",
       audio_url: "",
       elapsed_seconds: 0,
     };
@@ -110,36 +117,83 @@ export async function GET() {
     const currentSecond = now.getSeconds();
 
     // =================================================================
-    // 0. PRIORITAS UTAMA: DETEKSI LIVE DARI SANITY CMS (NOL TOKEN API)
+    // 0. PRIORITAS UTAMA BARU: DETEKSI JADWAL 24 JAM hybrid DARI SANITY
     // =================================================================
     try {
-      const sanityQuery = `*[_type == "radioConfig"][0] { isYouTubeLive, youtubeVideoId }`;
+      const sanityQuery = `
+        *[_type == "radioConfig"][0] {
+          radioName,
+          stationTagline,
+          schedules[] {
+            eventName,
+            speaker,
+            startTime,
+            endTime,
+            broadcastMode,
+            youtubeVideoId,
+            playlist[] {
+              trackTitle,
+              speaker,
+              "audioFileUrl": audioFile.asset->url
+            }
+          }
+        }
+      `;
+      
       const config = await client.fetch(sanityQuery, {}, { cache: 'no-store' });
 
-      if (config?.isYouTubeLive && config?.youtubeVideoId) {
-        const videoId = config.youtubeVideoId.trim();
-        return NextResponse.json({
-          active: true,
-          // ============================================================
-          // MODIFIKASI METADATA UTUH (SAMARKAN TRACKING YOUTUBE)
-          // ============================================================
-          title: "Radio Suara Berkemajuan", // Judul utama tetap sesuai desain Anda
-          artist: "PCM Kembaran",            // <--- GANTI INI (Sebelumnya "YouTube Live Stream")
-          program_title: "Radio Suara Berkemajuan", 
-          // ============================================================
-          audio_url: `https://www.youtube.com/watch?v=${videoId}`,
-          youtube_video_id: videoId,
-          thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-          elapsed_seconds: 0,
-          type: "youtube_live",
-        });
+      if (config && config.schedules && Array.isArray(config.schedules)) {
+        // Ambil waktu sekarang di zona lokal Asia/Jakarta (WIB)
+        const localTimeStr = now.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour12: false });
+        const [currentHours, currentMinutes] = localTimeStr.split('.').map(Number);
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+        let activeSchedule = null;
+        for (const schedule of config.schedules) {
+          const start = timeToMinutes(schedule.startTime);
+          const end = timeToMinutes(schedule.endTime);
+
+          if (currentTotalMinutes >= start && currentTotalMinutes < end) {
+            activeSchedule = schedule;
+            break;
+          }
+        }
+
+        // JIKA MENEMUKAN JADWAL YANG COCOK DI JAM SEKARANG
+        if (activeSchedule) {
+          const isYoutube = activeSchedule.broadcastMode === 'youtube_live';
+          const currentTrack = !isYoutube && activeSchedule.playlist?.length > 0 ? activeSchedule.playlist[0] : null;
+          const stationName = config.radioName || "Radio Suara Berkemajuan";
+
+          return NextResponse.json({
+            active: true,
+            type: activeSchedule.broadcastMode, // 'youtube_live' atau 'playlist_mp3'
+            youtube_video_id: isYoutube ? (activeSchedule.youtubeVideoId?.trim() || null) : null,
+            thumbnail: isYoutube ? `https://img.youtube.com/vi/${activeSchedule.youtubeVideoId?.trim()}/hqdefault.jpg` : "/bg-player.png",
+            
+            // Pemetaan nama data dinamis agar sesuai desain komponen player
+            title: isYoutube 
+              ? (activeSchedule.eventName || "Live Streaming YouTube") 
+              : (currentTrack?.trackTitle || activeSchedule.eventName),
+            artist: isYoutube 
+              ? (activeSchedule.speaker || "PCM Kembaran") 
+              : (currentTrack?.speaker || activeSchedule.speaker || "PCM Kembaran"),
+            program_title: stationName,
+            
+            // Audio streaming direct dari CDN Sanity CMS jika mode playlist aktif
+            audio_url: isYoutube ? `https://www.youtube.com/watch?v=${activeSchedule.youtubeVideoId?.trim()}` : (currentTrack?.audioFileUrl || null),
+            elapsed_seconds: 0,
+            schedules: config.schedules // Payload cadangan baris jadwal
+          });
+        }
       }
     } catch (sanityError) {
-      console.error("Gagal membaca konfigurasi Live dari Sanity:", sanityError);
+      console.error("Gagal memproses otomatisasi jadwal Sanity CMS:", sanityError);
+      // Jika Sanity down, program otomatis meluncur ke bawah mengeksekusi data fallback Prisma/Filler
     }
 
     // =================================================================
-    // A. JINGLE TIAP 5 MENIT (Hanya memotong jika durasi jingle valid)
+    // A. JINGLE TIAP 5 MENIT (DIKONDISIKAN SEBAGAI CRON BACKEND LAMA)
     // =================================================================
     if (currentMinute % 5 === 0 && currentMinute !== 0 && currentSecond < JINGLE_DURATION) {
       return NextResponse.json({
@@ -153,7 +207,7 @@ export async function GET() {
     }
 
     // =================================================================
-    // B. AMBIL JADWAL UTAMA YANG AKTIF SAAT INI
+    // B. JALUR CADANGAN (PRISMA DATABASE ENGINE LAMA)
     // =================================================================
     const currentTrack = await prisma.radioStream.findFirst({
       orderBy: {
@@ -203,7 +257,7 @@ export async function GET() {
     }
 
     // =================================================================
-    // E. KONDISI NORMAL (MP3 UTAMA SEDANG BERJALAN)
+    // E. KONDISI NORMAL (MP3 PRISMA UTAMA SEDANG BERJALAN)
     // =================================================================
     return NextResponse.json({
       active: true,
@@ -215,7 +269,7 @@ export async function GET() {
     });
 
   } catch (error: any) {
-    console.error("Gagal memuat get-current-radio:", error);
+    console.error("Gagal memuat get-current-radio emergency block:", error);
     const fallbackSeconds = Math.floor(Date.now() / 1000);
     const emergencyFiller = getVirtualFillerTrack(fallbackSeconds);
     return NextResponse.json({
