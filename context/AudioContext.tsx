@@ -206,6 +206,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           art: "/bg-player.png" 
         });
         setListeners(0);
+        lastSyncedUrlRef.current = ""; // Reset kunci
         return;
       }
 
@@ -239,11 +240,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const audio = audioRef.current;
         if (audio && data.audio_url) {
-          if (audio.src !== data.audio_url) {
+          // KUNCI UTAMA: Bandingkan dengan lastSyncedUrlRef agar browser tidak reload terus-menerus
+          if (lastSyncedUrlRef.current !== data.audio_url) {
+            lastSyncedUrlRef.current = data.audio_url;
             audio.src = data.audio_url;
             audio.load();
             
-            // Langsung mainkan murni tanpa utak-atik currentTime (Anti-Macet)
             if (isPlayingRef.current) {
               audio.play().catch(err => console.warn("Autoplay block protection:", err));
             }
@@ -254,7 +256,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
       
       // 🌟 KONDISI C: JALUR PEMUTAR FILE MP3 (Playlist, Main Prisma, Filler, Jingle)
-      // Diproteksi dengan toleransi selisih 6 detik agar audio mengalir mulus tanpa patah-patah
       if (data.audio_url) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
@@ -267,8 +268,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const audio = audioRef.current;
         if (audio && data.audio_url) {
-          // Jika source audio benar-benar berganti file lagu baru
-          if (audio.src !== data.audio_url) {
+          // Jika benar-benar mendeteksi pergantian file lagu baru di database
+          if (lastSyncedUrlRef.current !== data.audio_url) {
+            lastSyncedUrlRef.current = data.audio_url;
             audio.src = data.audio_url;
             audio.load();
             
@@ -280,8 +282,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               audio.play().catch(err => console.warn("Autoplay block protection:", err));
             }
           } else {
-            // 🔥 KUNCI PEMULIHAN: Kembalikan sistem toleransi selisih jam (Max 6 detik)
-            // Ini mencegah lagu macet/loncat-loncat setiap kali polling data 15 detik berjalan
+            // Jika lagunya masih sama, terapkan toleransi 6 detik biar gak lompat-lompat
             if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
               audio.currentTime = data.elapsed_seconds;
             }
