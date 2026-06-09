@@ -206,74 +206,42 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           art: "/bg-player.png" 
         });
         setListeners(0);
-        lastSyncedUrlRef.current = ""; // Reset kunci
         return;
       }
 
-      // Normalisasi tipe data ke huruf kecil biar aman dari typo string
-      const currentType = String(data.type || "").toLowerCase();
-
       // KONDISI A: JALUR LIVE STREAMING YOUTUBE
-      if (currentType === "youtube_live" || currentType.includes("youtube")) {
+      if (data.type === "youtube_live") {
         resetMp3PlaybackCompletely();
         setYoutubeVideoId(data.youtube_video_id);
         setIsYouTubeLive(true);
         setMetadata({
           title: data.title || "Live Streaming YouTube",
-          artist: data.artist || "PCM Kembaran",
+          artist: data.artist || "Pondok Pesantren Al Muttaqin",
           art: data.thumbnail || "/bg-player.png",
         });
         setListeners(1);
         return;
       }
       
-      // 🌟 KONDISI B: JALUR RELAY RADIO FM / LIVE STREAM LAIN (MURNI LIVE REALTIME)
-      if (currentType === "live_relay" || currentType.includes("relay")) {
+      // KONDISI B: JALUR PLAYLIST MP3 (SANITY ATAU FILLER)
+      if (data.type === "playlist_mp3" || data.audio_url) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
         
         setMetadata({
-          title: data.title || "Relay Radio FM / Live Stream",
-          artist: data.artist || "PCM Kembaran",
+          title: data.title || "Radio Suara Al Muttaqin",
+          artist: data.artist || "Menginspirasi Hati Menguatkan Iman",
           art: data.thumbnail || "/bg-player.png",
         });
 
         const audio = audioRef.current;
         if (audio && data.audio_url) {
-          // KUNCI UTAMA: Bandingkan dengan lastSyncedUrlRef agar browser tidak reload terus-menerus
-          if (lastSyncedUrlRef.current !== data.audio_url) {
-            lastSyncedUrlRef.current = data.audio_url;
+          // Sinkronisasi ganti lagu/source audio baru
+          if (audio.src !== data.audio_url) {
             audio.src = data.audio_url;
             audio.load();
             
-            if (isPlayingRef.current) {
-              audio.play().catch(err => console.warn("Autoplay block protection:", err));
-            }
-          }
-        }
-        setListeners(1);
-        return;
-      }
-      
-      // 🌟 KONDISI C: JALUR PEMUTAR FILE MP3 (Playlist, Main Prisma, Filler, Jingle)
-      if (data.audio_url) {
-        setIsYouTubeLive(false);
-        setYoutubeVideoId(null);
-        
-        setMetadata({
-          title: data.title || "Radio Suara Berkemajuan",
-          artist: data.artist || "PCM Kembaran",
-          art: data.thumbnail || "/bg-player.png",
-        });
-
-        const audio = audioRef.current;
-        if (audio && data.audio_url) {
-          // Jika benar-benar mendeteksi pergantian file lagu baru di database
-          if (lastSyncedUrlRef.current !== data.audio_url) {
-            lastSyncedUrlRef.current = data.audio_url;
-            audio.src = data.audio_url;
-            audio.load();
-            
+            // JALANKAN CATCH-UP SEEK: Lompatkan detik player ke detik berjalan riil di server
             if (data.elapsed_seconds && data.elapsed_seconds > 2) {
               audio.currentTime = data.elapsed_seconds;
             }
@@ -282,7 +250,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               audio.play().catch(err => console.warn("Autoplay block protection:", err));
             }
           } else {
-            // Jika lagunya masih sama, terapkan toleransi 6 detik biar gak lompat-lompat
+            // JIKA URL-NYA SAMA (LAGU YANG SAMA), TERAPKAN TOLERANSI SELISIH DETEKSI DETIK (MAX SELISIH 6 DETIK)
+            // Ini untuk mencegah lagu loncat-loncat akibat delay koneksi fetch berkala
             if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
               audio.currentTime = data.elapsed_seconds;
             }
