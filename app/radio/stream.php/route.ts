@@ -13,7 +13,7 @@ export async function GET() {
   const now = new Date();
   let targetAudioUrl = '';
   let broadcastMode = 'playlist_mp3';
-  let secondsSinceStarted = 0; // Penampung hitungan detik berjalan
+  let secondsSinceStarted = 0;
 
   try {
     const sanityQuery = `*[_type == "radioConfig"][0] {
@@ -52,17 +52,13 @@ export async function GET() {
           
           if (broadcastMode === 'playlist_mp3' && schedule.playlist?.length > 0) {
             const playlist = schedule.playlist;
-            
-            // Hitung total detik riil yang sudah berjalan sejak jam jadwal dimulai
             const totalSecondsTimeline = ((currentTotalMinutes - start) * 60) + currentSecs;
             
-            // Misal: ganti lagu tiap 1 jam (3600 detik)
+            // Mengikuti durasi virtual ganti lagu tiap 1 jam (3600 detik)
             const trackDuration = 3600; 
             const currentTrackIndex = Math.floor(totalSecondsTimeline / trackDuration) % playlist.length;
             
             targetAudioUrl = playlist[currentTrackIndex]?.audioFileUrl || '';
-            
-            // 🌟 HITUNG SISA DETIK UNTUK LAGU YANG SEDANG AKTIF INI
             secondsSinceStarted = totalSecondsTimeline % trackDuration;
           }
           break;
@@ -70,10 +66,10 @@ export async function GET() {
       }
     }
   } catch (sanityError) {
-    console.error(sanityError);
+    console.error('Sanity Error:', sanityError);
   }
 
-  // 🌟 SEKARANG KITA KIRIM DATA DETIK BERJALAN KE LARAVEL HAWKHOST
+  // OPER PARAMETER MATANG LANGSUNG KE CORE LARAVEL HAWKHOST
   const HAWKHOST_CORE_URL = `http://sdit.my.id/radio/stream.php?mode=${broadcastMode}&stream_url=${encodeURIComponent(targetAudioUrl)}&current_seconds=${secondsSinceStarted}`;
 
   try {
@@ -83,7 +79,7 @@ export async function GET() {
     });
 
     if (!response.ok || !response.body) {
-      return new NextResponse('Radio Stream Offline', { status: 503 });
+      return new NextResponse('Radio Offline (Hawkhost Unreachable)', { status: 503 });
     }
 
     return new NextResponse(response.body, {
