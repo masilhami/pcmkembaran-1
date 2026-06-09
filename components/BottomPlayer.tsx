@@ -12,7 +12,7 @@ export default function BottomPlayer() {
     toggleLivePlayback,
     isYouTubeLive,
     toggleYouTubeAudio,
-    isYouTubePlaying, // Memanfaatkan state sinkronisasi dari context baru
+    isYouTubePlaying,
   } = useAudio()
 
   const [mounted, setMounted] = useState(false)
@@ -30,10 +30,56 @@ export default function BottomPlayer() {
     )
   }
 
+  // =========================================================================
+  // 🔴 TAMPILAN 1: MINIMALIS BULAT MERAH (HANYA MUNCUL KETIKA LIVE / ON AIR)
+  // =========================================================================
+  if (isOnAir) {
+    return (
+      <div className="fixed bottom-5 right-5 z-[9999] pointer-events-none">
+        <motion.button
+          key="stop-btn"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.8, opacity: 0 }}
+          whileTap={{ scale: 0.92 }}
+          pointer-events-auto
+          onClick={() => {
+            if (isYouTubeLive) {
+              toggleYouTubeAudio()
+            } else {
+              toggleLivePlayback()
+            }
+          }}
+          className="
+            pointer-events-auto
+            relative h-16 w-16 rounded-full 
+            flex items-center justify-center 
+            bg-gradient-to-br from-red-500 to-red-600
+            shadow-[0_0_30px_rgba(239,68,68,0.5)]
+            border border-red-400/20
+            transition-all duration-300
+          "
+        >
+          {/* Ikon Stop Kotak Putih */}
+          <Square size={20} className="text-white" fill="white" />
+          
+          {/* Efek Denyut Sinyal Mengalir (Ping Animation Bawaan Tailwind) */}
+          <span className="absolute inset-0 rounded-full animate-ping bg-red-500/30 pointer-events-none" />
+          
+          {/* Tulisan kecil ON AIR melayang di atas tombol biar makin informatif */}
+          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-red-600 text-[9px] font-bold tracking-widest text-white px-1.5 py-0.5 rounded shadow-md uppercase">
+            LIVE
+          </span>
+        </motion.button>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // 🎵 TAMPILAN 2: CARD LEBAR PENUH ORIGINAL (MUNCUL KETIKA OFFLINE / PAUSED)
+  // =========================================================================
   return (
     <div className="fixed bottom-5 left-0 w-full flex justify-center px-4 z-[9999] pointer-events-none">
-      
-      {/* MAIN CARD */}
       <div className="
         pointer-events-auto
         w-full max-w-sm
@@ -46,7 +92,6 @@ export default function BottomPlayer() {
         shadow-[0_10px_40px_rgba(0,0,0,0.6)]
         relative overflow-visible
       ">
-        
         {/* subtle glow line */}
         <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.25),transparent_60%)]" />
         
@@ -65,42 +110,30 @@ export default function BottomPlayer() {
           {/* status indicator */}
           <div className="mt-1 flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-widest text-slate-400">
-  {isOnAir ? 'ON AIR' : 'Paused'}
-</span>
+              Paused
+            </span>
           </div>
         </div>
 
-        {/* ACTION BUTTON */}
+        {/* ACTION BUTTON PLAY */}
         <motion.button
-          key={isOnAir ? "stop" : "play"}
+          key="play-btn"
           whileTap={{ scale: 0.92 }}
           onClick={() => {
             if (isYouTubeLive) {
-              toggleYouTubeAudio() // Memanggil fungsi global yang baru dibuat
+              toggleYouTubeAudio()
             } else {
               toggleLivePlayback()
             }
           }}
-          className={`
+          className="
             relative h-12 w-12 rounded-full 
             flex items-center justify-center 
             transition-all duration-300 
-            shadow-[0_0_25px_rgba(34,211,238,0.25)] 
-            ${isOnAir 
-              ? 'bg-gradient-to-br from-red-500 to-red-600 shadow-[0_0_25px_rgba(239,68,68,0.4)]' 
-              : 'bg-slate-700 hover:bg-slate-600'}
-          `}
+            bg-slate-700 hover:bg-slate-600
+          "
         >
-          {isOnAir ? (
-            <Square size={18} className="text-white" fill="white" />
-          ) : (
-            <Play size={18} className="text-white ml-1" fill="white" />
-          )}
-          
-          {/* glow ring when ON AIR */}
-          {isOnAir && (
-            <span className="absolute inset-0 rounded-full animate-ping bg-red-400/30" />
-          )}
+          <Play size={18} className="text-white ml-1" fill="white" />
         </motion.button>
       </div>
     </div>
