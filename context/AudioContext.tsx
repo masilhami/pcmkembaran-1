@@ -16,7 +16,8 @@ interface AudioContextType {
     title: string; 
     artist: string; 
     art: string; 
-    audio_url?: string | null; // FIX: Menambahkan deklarasi properti audio_url agar type-safe di MainPlayer
+    audio_url?: string | null;          // FIX: Terdaftar agar MainPlayer.tsx aman
+    elapsed_seconds?: number | null;    // FIX: Terdaftar agar MainPlayer.tsx baris 55 aman
   };
   listeners: number;
   togglePlay: () => void;
@@ -51,8 +52,7 @@ async function fetchCurrentRadioStatusFromBackend() {
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // FIX: Menggunakan any pada ref untuk menghindari tabrakan penamaan dengan interface AudioContext lokal
-  const audioContextRef = useRef<any>(null);
+  const audioContextRef = useRef<any>(null); // FIX: Menggunakan any untuk menghindari tabrakan tipe Context lokal vs Web API
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const youtubeToggleRef = useRef<(() => void) | null>(null);
@@ -78,7 +78,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     title: "Mencari Sinyal...",
     artist: "Radio Suara Berkemajuan",
     art: "/bg-player.png",
-    audio_url: null as string | null, // FIX: Inisialisasi awal properti audio_url
+    audio_url: null as string | null,        // FIX: Inisialisasi awal properti
+    elapsed_seconds: null as number | null,  // FIX: Inisialisasi awal properti
   });
 
   const [isYouTubeLive, setIsYouTubeLive] = useState(false);
@@ -201,7 +202,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           title: data?.title || "Siaran Sedang Offline", 
           artist: data?.artist || "Radio Suara Berkemajuan",
           art: "/bg-player.png",
-          audio_url: null // FIX: Set null saat offline
+          audio_url: null,
+          elapsed_seconds: null
         });
         setListeners(0);
         lastSyncedUrlRef.current = ""; 
@@ -218,7 +220,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           title: data.title || "Live Streaming YouTube",
           artist: data.artist || "PCM Kembaran",
           art: data.thumbnail || "/bg-player.png",
-          audio_url: data.audio_url || null // FIX: Dukungan metadata link YT audio jika ada
+          audio_url: data.audio_url || null,
+          elapsed_seconds: 0
         });
         setListeners(1);
         lastSyncedUrlRef.current = "";
@@ -266,7 +269,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           title: data.title || "Panggilan Adzan Sholat",
           artist: data.artist || "Radio Suara Berkemajuan",
           art: "/bg-player.png",
-          audio_url: data.audio_url // FIX: Masukkan audio_url ke metadata state
+          audio_url: data.audio_url,
+          elapsed_seconds: data.elapsed_seconds // FIX: Terisi penuh
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
@@ -280,7 +284,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           title: data.title || "Relay Radio FM / Live Stream",
           artist: data.artist || "Radio Suara Berkemajuan",
           art: data.thumbnail || "/bg-player.png",
-          audio_url: data.audio_url // FIX: Masukkan audio_url ke metadata state
+          audio_url: data.audio_url,
+          elapsed_seconds: 0 // Live stream murni diset 0
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
@@ -294,7 +299,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           title: data.title || "Radio Suara Berkemajuan",
           artist: data.artist || "Dakwah Berkemajuan Mencerahkan Kehidupan",
           art: data.thumbnail || "/bg-player.png",
-          audio_url: data.audio_url // FIX: Masukkan audio_url ke metadata state
+          audio_url: data.audio_url,
+          elapsed_seconds: data.elapsed_seconds // FIX: Terisi penuh
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
