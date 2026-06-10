@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { client } from '@/lib/sanity.client';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,10 @@ const timeToMinutes = (timeStr: string): number => {
   return hours * 60 + minutes;
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const requestType = searchParams.get('type'); // 🌟 Cek apakah frontend minta metadata JSON
+
   const now = new Date();
   let targetAudioUrl = '';
   let broadcastMode = 'playlist_mp3';
@@ -84,8 +87,36 @@ export async function GET() {
     console.error('Sanity Error:', sanityError);
   }
 
-  // JALUR TOTAL SINKRON: Lempar data mentah ke Laravel via Query String
-  const HAWKHOST_CORE_URL = `https://sdit.my.id/radio/stream.php?mode=${broadcastMode}&stream_url=${encodeURIComponent(targetAudioUrl)}&current_seconds=${secondsSinceStarted}`;
+  // =========================================================================
+  // JALUR 1: Jika Frontend melakukan fetchMetadata (Minta data JSON resmi)
+  // =========================================================================
+  if (requestType === 'metadata') {
+    return NextResponse.json({
+      active: true,
+      type: broadcastMode,
+      title: broadcastMode === "adzan" ? "Panggilan Adzan Sholat" : "Siaran Utama Radio",
+      artist: "Radio Suara Berkemajuan",
+      thumbnail: "/bg-player.png",
+      // Mengarahkan player audio untuk menembak file ini kembali tanpa parameter metadata
+      audio_url: `/api/radio-stream?mode=${broadcastMode}&url=${encodeURIComponent(targetAudioUrl)}&seek=${secondsSinceStarted}`,
+      elapsed_seconds: secondsSinceStarted
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    });
+  }
+
+  // =========================================================================
+  // JALUR 2: Jika Player Audio meminta Biner Musik murni (audio/mpeg)
+  // =========================================================================
+  // Ambil parameter fallback/override jika stream dialirkan ulang dari audio_url
+  const finalMode = searchParams.get('mode') || broadcastMode;
+  const finalUrl = searchParams.get('url') || targetAudioUrl;
+  const finalSeek = searchParams.get('seek') || secondsSinceStarted;
+
+  const HAWKHOST_CORE_URL = `https://sdit.my.id/radio/stream.php?mode=${finalMode}&stream_url=${encodeURIComponent(finalUrl)}&current_seconds=${finalSeek}`;
 
   try {
     const response = await fetch(HAWKHOST_CORE_URL, {
