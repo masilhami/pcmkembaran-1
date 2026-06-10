@@ -13,25 +13,21 @@ export default function MainPlayer() {
     isYouTubeLive, 
     youtubeVideoId, 
     setIsYouTubeLive,
-    toggleYouTubeAudio,   // Fungsi terpusat dari context baru
-    isYouTubePlaying,     // State terpusat dari context baru
-    registerYouTubeToggle, // Diperlukan untuk mendaftarkan trigger saklar terpusat
+    toggleYouTubeAudio,
+    isYouTubePlaying,
+    registerYouTubeToggle,
   } = useAudio()
 
   const playerContainerRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
-  // Evaluasi status aktif berdasarkan kombinasi state audio murni dan audio YouTube
   const isOnAir = isPlaying || isYouTubePlaying
 
-  // Sinkronisasi pembersihan daur hidup data jika ID video YouTube hilang
+  // ===================== YouTube Live handling =====================
   useEffect(() => {
     if (!youtubeVideoId) setIsYouTubeLive(false)
   }, [youtubeVideoId, setIsYouTubeLive])
 
-  // =========================================================================
-  // PERBAIKAN SINKRONISASI: Daftarkan toggleYouTubeAudio ke dalam jembatan AudioContext
-  // agar daur hidup inisialisasi media tidak mengalami balapan (race condition)
-  // =========================================================================
   useEffect(() => {
     if (isYouTubeLive) {
       registerYouTubeToggle(toggleYouTubeAudio)
@@ -41,17 +37,37 @@ export default function MainPlayer() {
     }
   }, [isYouTubeLive, toggleYouTubeAudio, registerYouTubeToggle])
 
+  // ===================== MP3 Player handling =======================
+  // Update audio src hanya jika berubah
+  useEffect(() => {
+    if (!isYouTubeLive && metadata.audio_url && audioRef.current) {
+      if (audioRef.current.src !== metadata.audio_url) {
+        audioRef.current.src = metadata.audio_url
+        audioRef.current
+          .play()
+          .catch((err) => console.warn('Audio play error:', err))
+      }
+    }
+  }, [metadata.audio_url, isYouTubeLive])
+
+  // Update currentTime dengan aman
+  useEffect(() => {
+    if (!isYouTubeLive && audioRef.current && metadata.elapsed_seconds != null) {
+      const audioEl = audioRef.current
+      const safeTime = Math.min(metadata.elapsed_seconds, audioEl.duration || metadata.elapsed_seconds)
+      audioEl.currentTime = safeTime
+    }
+  }, [metadata.elapsed_seconds, isYouTubeLive])
+
   return (
     <div className="relative w-full max-w-5xl mx-auto p-4 md:p-6">
+
+      {/* ===================== YouTube Live iframe ===================== */}
       {isYouTubeLive && youtubeVideoId && (
         <div ref={playerContainerRef} className="fixed bottom-0 right-0 w-[1px] h-[1px] z-50 overflow-hidden opacity-0">
           <iframe
-            id="global-youtube-player" // ID elemen sinkron dengan target DOM AudioContext
-            src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=0&enablejsapi=1&playsinline=1`} // mute=0 agar volume API terbuka
-            // =========================================================================
-            // PERBAIKAN MUTLAK: Tambahkan skema cross-origin-isolated dan token kebijakan audio
-            // agar postMessage kontrol volume dari domain lokal diizinkan oleh sistem sandbox YouTube
-            // =========================================================================
+            id="global-youtube-player"
+            src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=0&enablejsapi=1&playsinline=1`}
             allow="autoplay; encrypted-media; gyroscope; accelerometer; cross-origin-isolated"
             className="w-full h-full"
             title="Live Player"
@@ -59,11 +75,21 @@ export default function MainPlayer() {
         </div>
       )}
 
-      {/* Glow Background */}
+      {/* ===================== MP3 Audio Element ===================== */}
+      {!isYouTubeLive && (
+        <audio
+          ref={audioRef}
+          autoPlay
+          controls={false}
+          className="hidden"
+        />
+      )}
+
+      {/* ===================== Glow Background ===================== */}
       <div className="absolute -left-10 top-10 h-48 w-48 md:h-72 md:w-72 rounded-full bg-cyan-500/20 blur-[100px] z-0" />
       <div className="absolute -right-10 bottom-10 h-48 w-48 md:h-72 md:w-72 rounded-full bg-blue-500/20 blur-[100px] z-0" />
 
-      {/* Player Panel */}
+      {/* ===================== Player Panel ===================== */}
       <div className="relative z-10 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-black shadow-2xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-8">
         
         {/* Logo */}
@@ -104,7 +130,7 @@ export default function MainPlayer() {
           <motion.button
             key={isOnAir ? "stop" : "play"}
             whileTap={{ scale: 0.95 }}
-            onClick={toggleLivePlayback} // Gerbang tunggal terpusat untuk menjamin token klik user valid
+            onClick={toggleLivePlayback}
             className={`h-14 w-14 md:h-16 md:w-16 rounded-full flex items-center justify-center transition-all duration-300 ${isOnAir ? 'bg-red-500' : 'bg-cyan-500'}`}
           >
             {isOnAir ? <Square size={24} className="text-white" fill="white" /> : <Play size={24} className="text-white" fill="white" />}

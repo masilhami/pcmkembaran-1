@@ -77,14 +77,14 @@ export default function Header() {
   ];
 
   return (
-    <header className="header-container" style={{ width: '100%', position: 'relative' }}>
+    <header className="w-full relative bg-white">
       
       <style dangerouslySetInnerHTML={{ __html: `
         .nav-link-item { color: #ffffff !important; text-decoration: none; transition: all 0.3s ease; }
         .nav-link-item:hover { background-color: var(--abah-gold) !important; color: #000000 !important; }
         .nav-menu-list::-webkit-scrollbar, .lapis4-list::-webkit-scrollbar { display: none; }
         .nav-menu-list, .lapis4-list { -ms-overflow-style: none; scrollbar-width: none; }
-        .lapis4-link { color: #444 !important; text-decoration: none; font-weight: 700; font-size: 11px; padding: 10px 15px; display: flex; align-items: center; white-space: nowrap; transition: 0.2s; }
+        .lapis4-link { color: #444 !important; text-decoration: none; font-weight: 700; font-size: 11px; padding: 10px 12px; display: flex; align-items: center; white-space: nowrap; transition: 0.2s; }
         .lapis4-link:hover { color: var(--abah-blue) !important; }
         
         @keyframes pulse-red {
@@ -94,10 +94,9 @@ export default function Header() {
         }
         .signal-indicator {
           width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%;
-          margin-right: 8px; display: inline-block; animation: pulse-red 2s infinite;
+          margin-right: 6px; display: inline-block; animation: pulse-red 2s infinite;
         }
 
-        /* 🌟 CSS DROPDOWN INTERAKTIF */
         .dropdown-parent { position: relative; display: flex; align-items: center; }
         .dropdown-box { 
           position: absolute; top: 100%; left: 0; background-color: #ffffff; 
@@ -118,78 +117,84 @@ export default function Header() {
           background-color: #f5f5f5; color: var(--abah-blue) !important; 
         }
 
-        /* 🛡️ BANNER ULTRA-SLIM & GLOW */
         .header-banner-right { 
           display: flex; 
           justify-content: flex-end;
-          width: 100%;
           height: 110px;
           transition: 0.3s; 
           flex: 1;
         }
-
-        .header-banner-right img {
-          transition: all 0.4s ease;
-        }
-
+        .header-banner-right img { transition: all 0.4s ease; }
         .header-banner-right:hover img {
           filter: brightness(1.25) drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
           transform: scale(1.03);
         }
         
-        .logo-section-left {
-          flex: 0 0 auto; 
-          margin-right: 30px;
-        }
-
-        /* 📏 TAGLINE TIGHTENING */
+        .logo-section-left { flex: 0 0 auto; }
         .tagline-text {
           font-size: 13.8px; 
           color: #666; font-weight: 700; text-transform: uppercase;
           display: block; text-align: justify; text-align-last: justify; 
           width: 100%; margin-top: 2px;
         }
-
-        @media (max-width: 992px) { 
-          .top-center-search { display: none !important; } 
-          .header-banner-right { display: none !important; }
-          .logo-text-box h1 { font-size: 24px !important; line-height: 1 !important; }
-          .tagline-text { font-size: 9px !important; margin-top: 1px !important; }
-          .logo-section-left { margin-right: 0; width: 100%; }
-        }
         
         .auth-btn {
           border: none; cursor: pointer; padding: 6px 15px; border-radius: 20px;
           font-size: 11px; font-weight: 800; text-transform: uppercase; transition: 0.3s;
         }
+
+        /* 📱 RESPONSIVE INTERFACE BREAKPOINTS */
+        @media (max-width: 992px) { 
+          .top-center-search { display: none !important; } 
+          .header-banner-right { display: none !important; }
+          .logo-text-box h1 { font-size: 26px !important; letter-spacing: -0.5px !important; }
+          .tagline-text { font-size: 8.5px !important; letter-spacing: 0.2px; text-align: left !important; text-align-last: auto !important; margin-top: 3px !important; }
+          .logo-section-left { width: 100%; justify-content: center; }
+          .logo-container-box { justify-content: center !important; padding: 12px 0 !important; }
+        }
+        
+        @media (max-width: 600px) {
+          .top-right-group a, .auth-btn { padding: 5px 10px !important; font-size: 10px !important; }
+          .logo-text-box h1 { font-size: 22px !important; }
+          .tagline-text { font-size: 7.5px !important; }
+          .logo-image-avatar { width: 45px !important; height: 45px !important; }
+        }
       `}} />
 
       {/* LAPIS 1: TOPBAR */}
-      <div className="top-bar" style={{ backgroundColor: '#fff', borderBottom: '1px solid #eee', padding: '6px 0' }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
-            <div className="hamburger-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)} style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer', zIndex: 1100 }}>
-              <span style={{ width: '25px', height: '3px', backgroundColor: 'var(--abah-blue)', borderRadius: '2px', transition: '0.3s', transform: isMenuOpen ? 'rotate(45deg) translate(5px, 5px)' : 'none' }}></span>
-              <span style={{ width: '25px', height: '3px', backgroundColor: 'var(--abah-blue)', borderRadius: '2px', opacity: isMenuOpen ? 0 : 1 }}></span>
-              <span style={{ width: '25px', height: '3px', backgroundColor: 'var(--abah-blue)', borderRadius: '2px', transition: '0.3s', transform: isMenuOpen ? 'rotate(-45deg) translate(5px, -5px)' : 'none' }}></span>
-            </div>
+      <div className="w-full bg-white border-b border-gray-100 py-2">
+        <div className="max-w-[1200px] mx-auto px-4 flex items-center justify-between gap-4">
+          
+          {/* Hamburger Menu Icon Wrapper (Gaya Sentuh Diperluas) */}
+          <div className="flex-1 flex justify-start">
+            <button 
+              type="button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)} 
+              className="flex flex-col gap-[5px] cursor-pointer z-[2100] border-none bg-transparent p-2 -ml-2 outline-none focus:outline-none"
+              aria-label="Toggle Navigation"
+            >
+              <span className="block w-6 h-[3px] bg-[var(--abah-blue)] rounded-sm transition-all duration-300" style={{ transform: isMenuOpen ? 'rotate(45deg) translate(6px, 5px)' : 'none' }}></span>
+              <span className="block w-6 h-[3px] bg-[var(--abah-blue)] rounded-sm transition-all duration-300" style={{ opacity: isMenuOpen ? 0 : 1 }}></span>
+              <span className="block w-6 h-[3px] bg-[var(--abah-blue)] rounded-sm transition-all duration-300" style={{ transform: isMenuOpen ? 'rotate(-45deg) translate(5px, -5px)' : 'none' }}></span>
+            </button>
           </div>
 
-          <div className="top-center-search" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-            <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', border: '1px solid #ddd', borderRadius: '30px', padding: '2px 2px 2px 15px', backgroundColor: '#fff', width: '100%', maxWidth: '380px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari naskah khutbah atau berita..." style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', color: '#444' }} />
-              <button type="submit" style={{ backgroundColor: 'var(--abah-blue)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          {/* Desktop Search Engine */}
+          <div className="top-center-search flex-1 hidden md:flex justify-center">
+            <form onSubmit={handleSearch} className="flex items-center border border-gray-300 rounded-full py-1 pr-1 pl-4 bg-white w-full max-w-[380px] shadow-sm">
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari naskah khutbah atau berita..." className="border-none outline-none w-full浏览 text-xs color-[#444]" />
+              <button type="submit" className="bg-[var(--abah-blue)] border-none w-8 h-8 rounded-full cursor-pointer flex items-center justify-center shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
               </button>
             </form>
           </div>
 
-          <div className="top-right-group" style={{ flex: 1, display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-            {/* 🌟 FIX: Properti 'fontweight' di bawah sudah diperbaiki menjadi 'fontWeight' kapital */}
-            <Link href="https://sociabuzz.com/pcmkembaran/tribe" style={{ backgroundColor: 'var(--abah-blue)', color: '#ffffff', padding: '6px 15px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', textDecoration: 'none', textTransform: 'uppercase' }}>DONASI</Link>
+          {/* Right Action Button Group */}
+          <div className="flex-1 flex gap-2 justify-end items-center">
+            <Link href="https://sociabuzz.com/pcmkembaran/tribe" className="bg-[var(--abah-blue)] color-[#ffffff] px-4 py-1.5 rounded-full text-[11px] font-extrabold text-white no-underline tracking-wider text-center whitespace-nowrap">DONASI</Link>
             <button 
               onClick={handleAuthAction}
-              className="auth-btn"
+              className="auth-btn whitespace-nowrap"
               style={{ 
                 backgroundColor: user ? '#ff4d4f' : 'var(--abah-gold)', 
                 color: user ? '#fff' : '#000' 
@@ -202,7 +207,7 @@ export default function Header() {
       </div>
 
       {/* SIDE DRAWER */}
-      <div style={{ position: 'fixed', top: 0, left: isMenuOpen ? 0 : '-100%', width: '280px', height: '100vh', backgroundColor: '#fff', zIndex: 2000, transition: '0.4s ease', boxShadow: '5px 0 15px rgba(0,0,0,0.1)', padding: '30px 20px', overflowY: 'auto' }}>
+      <div style={{ position: 'fixed', top: 0, left: isMenuOpen ? 0 : '-100%', width: '280px', height: '100vh', backgroundColor: '#fff', zIndex: 2500, transition: '0.4s ease', boxShadow: '5px 0 15px rgba(0,0,0,0.1)', padding: '30px 20px', overflowY: 'auto' }}>
         <h3 style={{ color: 'var(--abah-blue)', fontSize: '18px', fontWeight: '900', borderBottom: '2px solid var(--abah-gold)', paddingBottom: '10px', marginBottom: '20px' }}>NAVIGASI</h3>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {orgMenus.map((m) => (
@@ -215,17 +220,19 @@ export default function Header() {
           ))}
         </ul>
       </div>
-      {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1900 }}></div>}
+      {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2400 }}></div>}
 
       {/* LAPIS 2: LOGO & PHOTO BANNER */}
-      <div className="logo-section" style={{ backgroundColor: '#fff', padding: '2px 0' }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
+      <div className="w-full bg-white py-4 border-b border-gray-50">
+        <div className="logo-container-box max-w-[1200px] mx-auto px-4 flex items-center justify-between gap-6">
           
-          <div className="logo-section-left">
-            <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '15px' }}>
-              <Image src="/logo-md.png" alt="Logo" width={55} height={55} style={{ borderRadius: '50%' }} priority />
-              <div className="logo-text-box" style={{ display: 'flex', flexDirection: 'column', width: 'fit-content' }}>
-                <h1 style={{ color: 'var(--abah-blue)', margin: 0, fontSize: '42px', fontWeight: '900', fontStyle: 'italic', letterSpacing: '-1.5px', lineHeight: 0.9 }}>
+          <div className="logo-section-left flex items-center">
+            <Link href="/" className="no-underline inline-flex items-center gap-3 sm:gap-4">
+              <div className="logo-image-avatar w-[55px] h-[55px] relative shrink-0">
+                <Image src="/logo-md.png" alt="Logo" fill className="rounded-full object-cover" priority />
+              </div>
+              <div className="logo-text-box flex flex-col w-fit">
+                <h1 style={{ color: 'var(--abah-blue)', margin: 0, fontSize: '38px', fontWeight: '900', fontStyle: 'italic', letterSpacing: '-1.5px', lineHeight: 0.9 }}>
                   PCM <span style={{ color: 'var(--abah-gold)' }}>KEMBARAN</span>
                 </h1>
                 <span className="tagline-text">
@@ -239,9 +246,9 @@ export default function Header() {
              <Image 
                src="/images/pcm.png" 
                alt="Pimpinan PCM Kembaran" 
-               width={1200} 
+               width={800} 
                height={110} 
-               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+               className="w-full h-full object-contain"
                priority
              />
           </div>
@@ -249,42 +256,45 @@ export default function Header() {
         </div>
       </div>
 
-      {/* LAPIS 3 & 4: NAVIGATION */}
-      <div className="sticky-nav-group" style={{ position: 'sticky', top: 0, zIndex: 1000, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
-        <nav className="main-nav" style={{ backgroundColor: 'var(--abah-blue)', borderBottom: '2px solid var(--abah-gold)' }}>
-          <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <ul className="nav-menu-list" style={{ display: 'flex', listStyle: 'none', padding: 0, margin: 0, overflowX: 'auto' }}>
-              <li style={{ backgroundColor: 'var(--abah-gold)' }}>
-                <Link href="/" style={{ display: 'flex', alignItems: 'center', height: '48px', padding: '0 20px', color: '#000', fontWeight: '800', textDecoration: 'none' }}>HOME</Link>
-              </li> {/* 🌟 FIX: Tag penutup li yang salah pasang (</td>) sudah dikembalikan menjadi </li> */}
+      {/* LAPIS 3 & 4: NAVIGATION (STICKY SYSTEM WITH AUTO OVERFLOW SCROLL) */}
+      <div className="sticky-nav-group sticky top-0 z-[1000] shadow-md">
+        
+        {/* Lapis 3 Menu Utama */}
+        <nav className="w-full bg-[var(--abah-blue)] border-b-2 border-[var(--abah-gold)]">
+          <div className="max-w-[1200px] mx-auto">
+            <ul className="nav-menu-list flex list-none p-0 m-0 overflow-x-auto select-none touch-pan-x">
+              <li className="bg-[var(--abah-gold)] shrink-0">
+                <Link href="/" className="flex items-center h-12 px-5 color-[#000] font-extrabold no-underline text-sm text-black">HOME</Link>
+              </li>
               {categoryMenus.map((m) => (
-                <li key={m.slug}>
-                  <Link href={`/${m.slug}`} className="nav-link-item" style={{ display: 'flex', alignItems: 'center', height: '48px', padding: '0 20px', fontWeight: '700', fontSize: '12px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{m.name}</Link>
+                <li key={m.slug} className="shrink-0">
+                  <Link href={`/${m.slug}`} className="nav-link-item flex items-center h-12 px-5 font-bold text-xs no-underline whitespace-nowrap uppercase">{m.name}</Link>
                 </li>
               ))}
             </ul>
           </div>
         </nav>
 
-        <nav className="secondary-nav" style={{ backgroundColor: '#f9f9f9', borderBottom: '1px solid #eee' }}>
-          <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <ul className="lapis4-list" style={{ display: 'flex', listStyle: 'none', padding: 0, margin: 0, overflowX: 'visible' }}>
+        {/* Lapis 4 Menu Sekunder (X-Axis Scroll Responsive) */}
+        <nav className="w-full bg-[#f9f9f9] border-b border-gray-200">
+          <div className="max-w-[1200px] mx-auto">
+            <ul className="lapis4-list flex list-none p-0 m-0 overflow-x-auto select-none touch-pan-x items-center">
               {lapis4Menus.map((m, index) => (
-                <li key={m.slug} style={{ display: 'flex', alignItems: 'center' }}>
+                <li key={m.slug} className="flex items-center shrink-0">
                   <Link href={`/${m.slug}`} className="lapis4-link">
                     {m.slug === "kajian-hari-ini" && <span className="signal-indicator"></span>}
                     {m.name.toUpperCase()}
                   </Link>
-                  <span style={{ color: '#ccc', fontSize: '10px' }}>|</span>
+                  <span className="text-gray-300 text-[10px] pointer-events-none select-none px-1">|</span>
                 </li>
               ))}
 
-              {/* 🌟 KUSTOMISASI: TULISAN "RADIO" BISA DIKLIK MENUJU /radio & MEMILIKI DROPDOWN JADWAL */}
-              <li className="dropdown-parent" style={{ display: 'flex', alignItems: 'center' }}>
+              {/* TULISAN "RADIO" BISA DIKLIK MENUJU /radio & MEMILIKI DROPDOWN JADWAL */}
+              <li className="dropdown-parent flex items-center shrink-0 relative">
                 <Link href="/radio" className="lapis4-link">
-                  RADIO <span style={{ fontSize: '8px', marginLeft: '4px' }}>▼</span>
+                  RADIO <span className="text-[8px] ml-1">▼</span>
                 </Link>
-                <ul className="dropdown-box">
+                <ul className="dropdown-box shadow-md bg-white border border-gray-100 rounded">
                   <li>
                     <Link href="/jadwal-radio" className="dropdown-item-link">
                       Jadwal Radio
@@ -295,6 +305,7 @@ export default function Header() {
             </ul>
           </div>
         </nav>
+        
       </div>
     </header>
   );

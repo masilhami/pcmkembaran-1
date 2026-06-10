@@ -30,7 +30,6 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
-// Fungsi utama: Menghubungi backend terpadu get-current-radio (Diproteksi try-catch dari crash network)
 async function fetchCurrentRadioStatusFromBackend() {
   try {
     const res = await fetch("/api/get-current-radio", { cache: "no-store" });
@@ -41,20 +40,20 @@ async function fetchCurrentRadioStatusFromBackend() {
     return await res.json();
   } catch (err) {
     console.error("Koneksi internet tersendat, gagal sinkronisasi radio:", err);
-    return { active: false }; // Kembalikan objek aman penangkal Console TypeError murni
+    return { active: false };
   }
 }
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<any>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const youtubeToggleRef = useRef<(() => void) | null>(null);
 
   const isInitialized = useRef(false);
   const lastSyncedUrlRef = useRef("");
-  const userStoppedRef = useRef(false);
+  const userStoppedRef = useRef(true); 
   const isAutoSwitchingRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -70,7 +69,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [metadata, setMetadata] = useState({
     title: "Mencari Sinyal...",
-    artist: "Radio Suara Berkemajuan", // 🌟 FIX: Nama stasiun dikunci sah di sini
+    artist: "Radio Suara Berkemajuan",
     art: "/bg-player.png",
   });
 
@@ -90,34 +89,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const stopMp3Playback = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio) return;
-
+    
     if (jingleRef.current) {
       jingleRef.current.pause();
       jingleRef.current.currentTime = 0;
     }
     isJinglePlayingRef.current = false;
 
-    if (jingleIntervalRef.current) {
-      clearInterval(jingleIntervalRef.current);
-      jingleIntervalRef.current = null;
-    }
-
     userStoppedRef.current = true;
     isAutoSwitchingRef.current = false;
 
-    try {
-      audio.volume = 0;
-    } catch (e) {
-      console.warn("Mute handling error:", e);
+    if (audio) {
+      audio.pause();
     }
-    
     setIsPlaying(false);
   }, []);
 
   const resetMp3PlaybackCompletely = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio) return;
 
     if (jingleRef.current) {
       jingleRef.current.pause();
@@ -125,17 +114,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
     isJinglePlayingRef.current = false;
 
-    if (jingleIntervalRef.current) {
-      clearInterval(jingleIntervalRef.current);
-      jingleIntervalRef.current = null;
-    }
-
     userStoppedRef.current = true;
     isAutoSwitchingRef.current = false;
 
-    audio.pause();
-    audio.removeAttribute("src");
-    audio.load();
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
 
     lastSyncedUrlRef.current = "";
     setIsPlaying(false);
@@ -147,6 +133,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const playJingle = useCallback(() => {
     try {
+      const currentTitle = (metadata.title || "").toLowerCase();
+
+      if (currentTitle.includes("adzan") || currentTitle.includes("panggilan")) {
+        isJinglePlayingRef.current = false;
+        return;
+      }
+
       if (!isPlayingRef.current || isYouTubePlayingRef.current || isJinglePlayingRef.current) {
         return;
       }
@@ -160,69 +153,54 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         jingleRef.current = new Audio(JINGLE_FILE);
         jingleRef.current.preload = "auto";
         jingleRef.current.crossOrigin = "anonymous";
-        jingleRef.current.onerror = () => {
-          console.error("Jingle gagal dimuat");
-          if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
-          isJinglePlayingRef.current = false;
-        };
       }
 
-      mainAudio.volume = 0.01; 
-      jingleRef.current.currentTime = 0;
-
-      const runJinglePlay = async () => {
-        try {
-          if (jingleRef.current) {
-            await jingleRef.current.play();
-          }
-        } catch (playErr) {
-          console.error("Jingle playback execution blocked:", playErr);
-          if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
-          isJinglePlayingRef.current = false;
-        }
+      jingleRef.current.onerror = () => {
+        if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
+        isJinglePlayingRef.current = false;
       };
 
-      runJinglePlay();
+      mainAudio.volume = 0.1; 
+      jingleRef.current.currentTime = 0;
+
+      jingleRef.current.play()
+        .catch(playErr => {
+          console.warn("Jingle blocked by browser policy:", playErr);
+          if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
+          isJinglePlayingRef.current = false;
+        });
 
       jingleRef.current.onended = () => {
-        const mainAudioElement = audioRef.current;
-        if (isPlayingRef.current && mainAudioElement) {
-          mainAudioElement.volume = 1;
+        if (isPlayingRef.current && audioRef.current) {
+          audioRef.current.volume = 1;
         }
         isJinglePlayingRef.current = false;
       };
     } catch (err) {
-      console.error("Gagal memputar jingle:", err);
       if (audioRef.current && isPlayingRef.current) audioRef.current.volume = 1;
       isJinglePlayingRef.current = false;
     }
-  }, [JINGLE_FILE]);
+  }, [JINGLE_FILE, metadata.title]);
 
-  // =================================================================
-  // SINKRONISASI AKTIF: PEMBAGIAN TR TRANSMISI AUDIO SECARA AMAN
-  // =================================================================
   const fetchMetadata = useCallback(async () => {
     try {
       const data = await fetchCurrentRadioStatusFromBackend(); 
       
-      // Jika backend menyatakan siaran offline/gagal muat data dokumen
       if (!data || !data.active) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
         setMetadata({ 
           title: data?.title || "Siaran Sedang Offline", 
-          artist: data?.artist || "Radio Suara Berkemajuan", // 🌟 FIX
+          artist: data?.artist || "Radio Suara Berkemajuan",
           art: "/bg-player.png" 
         });
         setListeners(0);
-        lastSyncedUrlRef.current = ""; // Reset pengunci agar sinkron ulang saat online
+        lastSyncedUrlRef.current = ""; 
         return;
       }
 
-      // Normalisasi tipe data ke huruf kecil agar anti-mismatch string
       const currentType = String(data.type || "").toLowerCase();
 
-      // KONDISI A: JALUR LIVE STREAMING YOUTUBE
       if (currentType === "youtube_live" || currentType.includes("youtube")) {
         resetMp3PlaybackCompletely();
         setYoutubeVideoId(data.youtube_video_id);
@@ -237,110 +215,82 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // KONDISI B: JALUR INTERUPSI ADZAN OTOMATIS (WILAYAH PURWOKERTO)
+      const handleAudioSourceSync = (audioUrl: string, elapsedSeconds?: number) => {
+        const audio = audioRef.current;
+        if (!audio || !audioUrl) return;
+
+        if (lastSyncedUrlRef.current !== audioUrl) {
+          lastSyncedUrlRef.current = audioUrl;
+          isAutoSwitchingRef.current = true;
+          audio.src = audioUrl;
+          audio.load();
+
+          if (elapsedSeconds && elapsedSeconds > 2) {
+            audio.currentTime = elapsedSeconds;
+          }
+
+          if (isPlayingRef.current && !userStoppedRef.current) {
+            audio.play()
+              .then(() => { 
+                isAutoSwitchingRef.current = false; 
+              })
+              .catch(err => {
+                console.warn("Autoplay ditolak browser saat sinkronisasi berkala:", err);
+                isAutoSwitchingRef.current = false;
+                // FIX: Jika gagal play otomatis karena aturan browser, sinkronkan UI menjadi pause!
+                setIsPlaying(false);
+              });
+          } else {
+            isAutoSwitchingRef.current = false;
+          }
+        } else {
+          if (elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 6) {
+            audio.currentTime = elapsedSeconds;
+          }
+        }
+      };
+
       if (currentType === "adzan") {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
-
         setMetadata({
           title: data.title || "Panggilan Adzan Sholat",
-          artist: data.artist || "Radio Suara Berkemajuan", // 🌟 FIX
+          artist: data.artist || "Radio Suara Berkemajuan",
           art: "/bg-player.png",
         });
-
-        const audio = audioRef.current;
-        if (audio && data.audio_url) {
-          if (lastSyncedUrlRef.current !== data.audio_url) {
-            lastSyncedUrlRef.current = data.audio_url;
-            audio.src = data.audio_url;
-            audio.load();
-
-            if (data.elapsed_seconds && data.elapsed_seconds > 2) {
-              audio.currentTime = data.elapsed_seconds;
-            }
-
-            if (isPlayingRef.current) {
-              audio.play().catch(err => console.warn("Autoplay block protection:", err));
-            }
-          } else {
-            // Jika audio adzan sedang mengalir, terapkan toleransi 6 detik agar tidak loncat suara
-            if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
-              audio.currentTime = data.elapsed_seconds;
-            }
-          }
-        }
+        handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
         return;
       }
       
-      // KONDISI C: JALUR LIVE RELAY FM / STREAMING EKSTERNAL
       if (currentType === "live_relay" || currentType.includes("relay")) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
-
         setMetadata({
           title: data.title || "Relay Radio FM / Live Stream",
-          artist: data.artist || "Radio Suara Berkemajuan", // 🌟 FIX
+          artist: data.artist || "Radio Suara Berkemajuan",
           art: data.thumbnail || "/bg-player.png",
         });
-
-        const audio = audioRef.current;
-        if (audio && data.audio_url) {
-          if (lastSyncedUrlRef.current !== data.audio_url) {
-            lastSyncedUrlRef.current = data.audio_url;
-            audio.src = data.audio_url;
-            audio.load();
-
-            if (isPlayingRef.current) {
-              audio.play().catch(err => console.warn("Autoplay block protection:", err));
-            }
-          }
-        }
+        handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
         return;
       }
       
-      // KONDISI D: JALUR PEMUTAR FILE MP3 (PLAYLIST, MAIN PRISMA, ATAU FILLER JEDA)
       if (data.audio_url) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
-        
         setMetadata({
-          title: data.title || "Radio Suara Berkemajuan", // 🌟 FIX
+          title: data.title || "Radio Suara Berkemajuan",
           artist: data.artist || "Dakwah Berkemajuan Mencerahkan Kehidupan",
           art: data.thumbnail || "/bg-player.png",
         });
-
-        const audio = audioRef.current;
-        if (audio && data.audio_url) {
-          if (lastSyncedUrlRef.current !== data.audio_url) {
-            lastSyncedUrlRef.current = data.audio_url;
-            audio.src = data.audio_url;
-            audio.load();
-            
-            if (data.elapsed_seconds && data.elapsed_seconds > 2) {
-              audio.currentTime = data.elapsed_seconds;
-            }
-
-            if (isPlayingRef.current) {
-              audio.play().catch(err => console.warn("Autoplay block protection:", err));
-            }
-          } else {
-            // Terapkan sistem toleransi selisih 6 detik agar MP3 mengalir mulus tanpa patah-patah
-            if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
-              audio.currentTime = data.elapsed_seconds;
-            }
-          }
-        }
-        
+        handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
         return;
       }
 
     } catch (error) {
       console.error("Gagal sinkronisasi data stream radio:", error);
-      setMetadata({ title: "Hubungan Terputus...", artist: "Radio Suara Berkemajuan", art: "/bg-player.png" }); // 🌟 FIX
-      setListeners(0);
     }
   }, [resetMp3PlaybackCompletely]);
 
@@ -358,10 +308,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         ? (window.AudioContext || (window as any).webkitAudioContext) 
         : null;
 
-      if (!WebAudioContext) {
-        console.warn("Web Audio API tidak didukung di browser ini.");
-        return;
-      }
+      if (!WebAudioContext) return;
       
       const audioCtx = new WebAudioContext();
       audioContextRef.current = audioCtx;
@@ -385,20 +332,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const startPlayback = useCallback(async () => {
     try {
       const audio = audioRef.current;
+      
+      // FIX: Paksa Web Audio Context jalan kembali di dalam scope interaksi user
+      if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+
       if (audio && audio.src && audio.src !== "" && audio.src !== window.location.href) {
         audio.volume = 1;
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          await playPromise;
-        }
         userStoppedRef.current = false;
         setIsPlaying(true);
         setHasError(false);
+        await audio.play();
         return;
       }
-
+      userStoppedRef.current = false;
       await fetchMetadata();
-    } catch {
+    } catch (e) {
+      console.error("Playback gagal:", e);
       setHasError(true);
       setIsPlaying(false);
     }
@@ -413,12 +364,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     if (isPlaying) {
       stopMp3Playback();
-      return;
+    } else {
+      await startPlayback();
     }
-
-    userStoppedRef.current = false;
-    setHasError(false);
-    await startPlayback();
   }, [initAudio, isPlaying, stopMp3Playback, startPlayback]);
 
   const toggleLivePlayback = useCallback(() => {
@@ -438,27 +386,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     window.dispatchEvent(new CustomEvent("yt-status-change", { detail: nextState }));
 
-    if (!jingleRef.current) {
-      jingleRef.current = new Audio(JINGLE_FILE);
-      jingleRef.current.preload = "auto";
-      jingleRef.current.crossOrigin = "anonymous";
-    }
-    
-    if (nextState) {
-      jingleRef.current.load();
-    }
-
     if (nextState && audioRef.current) {
-      audioRef.current.volume = 0;
+      audioRef.current.pause();
       setIsPlaying(false);
       isPlayingRef.current = false; 
     }
-  }, [JINGLE_FILE]); 
+  }, []); 
 
   useEffect(() => {
     const syncStatusFromEvent = (e: any) => {
       setIsYouTubePlaying(e.detail);
       isYouTubePlayingRef.current = e.detail; 
+      if (e.detail) {
+        setIsPlaying(false);
+      }
     };
     window.addEventListener("yt-status-change", syncStatusFromEvent);
     return () => window.removeEventListener("yt-status-change", syncStatusFromEvent);
@@ -471,39 +412,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, [isYouTubeLive, resetMp3PlaybackCompletely]);
 
   useEffect(() => {
-    if (jingleIntervalRef.current) {
-      clearInterval(jingleIntervalRef.current);
-      jingleIntervalRef.current = null;
-    }
-
     const checkAndTriggerJingle = () => {
-      const isUserListening = isPlayingRef.current || isYouTubePlayingRef.current;
-      if (isUserListening) {
+      if (isPlayingRef.current && !isYouTubePlayingRef.current) {
         playJingle();
       }
     };
-
     jingleIntervalRef.current = setInterval(checkAndTriggerJingle, JINGLE_INTERVAL);
-
-    return () => {
-      if (jingleIntervalRef.current) {
-        clearInterval(jingleIntervalRef.current);
-        jingleIntervalRef.current = null;
-      }
-    };
-  }, [playJingle, JINGLE_INTERVAL]);
-
-  useEffect(() => {
     return () => {
       if (jingleIntervalRef.current) clearInterval(jingleIntervalRef.current);
-      if (jingleRef.current) jingleRef.current.pause();
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch {}
-      }
     };
-  }, []);
+  }, [playJingle, JINGLE_INTERVAL]);
 
   return (
     <AudioContext.Provider
@@ -531,12 +449,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         crossOrigin="anonymous"
         preload="none"
         onPause={() => {
-          if (!isAutoSwitchingRef.current && userStoppedRef.current && audioRef.current?.volume === 0) {
-            // Biarkan state dikendalikan fungsi mute
+          if (!isAutoSwitchingRef.current && userStoppedRef.current) {
+            setIsPlaying(false);
           }
         }}
         onPlay={() => {
-          if (audioRef.current && audioRef.current.volume > 0) {
+          if (!isAutoSwitchingRef.current) {
             userStoppedRef.current = false;
             setIsPlaying(true);
             setHasError(false);
