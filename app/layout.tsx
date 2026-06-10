@@ -6,7 +6,6 @@ import "./globals.css";
 // Components
 import RootClient from '@/components/RootClient';
 import LayoutWrapper from "@/components/LayoutWrapper";
-import InstallationTracker from "@/components/InstallationTracker"; 
 import YouTubeManager from '@/components/YouTubeManager';
 import { AudioProvider } from '@/context/AudioContext';
 
@@ -78,18 +77,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${plusJakartaSans.className} antialiased`} style={{ backgroundColor:'#f8fafc', color:'#0f172a', margin:0, minHeight:'100vh', display:'flex', flexDirection:'column' }}>
         
-        {/* AUDIO PROVIDER MENUTUP SELURUH APPS */}
         <AudioProvider>
-          {/* YOUTUBE MANAGER: PERMANEN & AMAN DARI UNMOUNT */}
           <YouTubeManager />
 
-          {/* FIX: Dipanggil secara mandiri tanpa div pembungkus eksternal. 
-              Pengaturan tata letak seutuhnya diserahkan ke internal file InstallationTracker.tsx 
-              untuk mematikan potensi duplikasi render (kembar) di client.
-          */}
-          <InstallationTracker />
+          {/* FIX: Jalur pemanggilan di sini sengaja dikosongkan karena tracker 
+              akan ditaruh di dalam satu pintu pusat (LayoutWrapper) agar tidak ganda. */}
 
-          {/* LAYOUT WRAPPER: Memegang kendali penuh atas Header, Footer, & BottomPlayer */}
           <LayoutWrapper>
             <main style={{ flex:1, position:'relative', zIndex:1 }}>
               {children}
