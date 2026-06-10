@@ -197,23 +197,17 @@ export default {
                     },
                     { 
                       name: 'trackTitle', 
-                      title: 'Judul Audio (Kosongkan jika ingin otomatis sesuai nama file)', 
+                      title: 'Judul Audio (Opsional)', 
                       type: 'string',
-                      description: 'Jika dikosongkan, sistem web otomatis membaca nama file MP3 Anda sebagai judul.'
+                      description: 'Kosongkan jika ingin otomatis mengikuti nama asli file yang diupload.'
                     },
                     { 
                       name: 'speaker', 
-                      title: 'Narasumber / Pengisi', 
+                      title: 'Narasumber / Pengisi (Opsional)', 
                       type: 'string',
-                      description: 'Bisa dikosongkan jika pembawa materi sama dengan pengisi acara utama di atas.',
-                    },
-                    {
-                      name: 'duration',
-                      title: 'Durasi Audio (Detik)',
-                      type: 'number',
-                      description: 'Wajib diisi agar perpindahan antar lagu di radio berjalan lancar tanpa jeda sunyi lama. Contoh: 3 menit 20 detik isi 200.',
-                      validation: (rule: Rule) => rule.required().positive().integer().error('Durasi audio dalam satuan detik wajib diisi.')
+                      description: 'Bisa dikosongkan jika mengikuti narasumber utama di atas.',
                     }
+                    /* FIX UTAMA: Field pengisian durasi detik yang meribetkan admin DIHAPUS TOTAL dari CMS */
                   ],
                   preview: {
                     select: {
@@ -223,8 +217,6 @@ export default {
                     },
                     prepare(selection: any) {
                       const { title, artist, filename } = selection;
-                      
-                      // Membersihkan ekstensi nama file untuk fallback judul otomatis di preview studio
                       const autoTitle = filename 
                         ? filename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim()
                         : 'Memuat data file...';

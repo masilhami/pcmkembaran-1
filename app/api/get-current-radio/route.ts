@@ -27,7 +27,7 @@ const timeToMinutes = (timeStr: string): number => {
 
 // Menghitung Virtual Timeline secara presisi berbasis akumulasi durasi riil antarlagu
 function getVirtualTrackFromPlaylist(
-  playlist: Array<{title?: string, trackTitle?: string, duration?: number, url?: string, audioFileUrl?: string, speaker?: string}>, 
+  playlist: Array<{title?: string, trackTitle?: string, duration?: number, url?: string, audioFileUrl?: string, speaker?: string, originalFilename?: string}>, 
   secondsElapsedSinceStart: number
 ) {
   const getDuration = (track: any) => Number(track.duration) || 240; 
@@ -43,8 +43,18 @@ function getVirtualTrackFromPlaylist(
   for (const track of playlist) {
     const d = getDuration(track);
     if (virtualTimeline >= accumulatedTime && virtualTimeline < accumulatedTime + d) {
+      
+      // FIX UTAMA: Ekstrak dan bersihkan nama file jika judul sengaja dikosongkan oleh admin
+      let finalTitle = track.trackTitle || track.title;
+      if (!finalTitle && track.originalFilename) {
+        finalTitle = track.originalFilename
+          .replace(/\.[^/.]+$/, "") // Hapus ekstensi seperti .mp3, .m4a
+          .replace(/[_-]+/g, " ")   // Ubah karakter strip/underscore jadi spasi rapi
+          .trim();
+      }
+
       return {
-        title: track.trackTitle || track.title || "Kajian Pilihan",
+        title: finalTitle || "Kajian Pilihan",
         audio_url: track.audioFileUrl || track.url || "",
         elapsed_seconds: virtualTimeline - accumulatedTime,
         artist: track.speaker || "PCM Kembaran", 
@@ -53,8 +63,14 @@ function getVirtualTrackFromPlaylist(
     accumulatedTime += d;
   }
 
+  // Fallback track pertama
+  let fallbackTitle = playlist[0].trackTitle || playlist[0].title;
+  if (!fallbackTitle && playlist[0].originalFilename) {
+    fallbackTitle = playlist[0].originalFilename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
+  }
+
   return {
-    title: playlist[0].trackTitle || playlist[0].title || "Kajian Pilihan",
+    title: fallbackTitle || "Kajian Pilihan",
     audio_url: playlist[0].audioFileUrl || playlist[0].url || "",
     elapsed_seconds: 0,
     artist: playlist[0].speaker || "PCM Kembaran",
@@ -158,7 +174,8 @@ export async function GET() {
             playlist[] {
               trackTitle,
               speaker,
-              duration, 
+              "duration": audioFile.asset->metadata.duration,
+              "originalFilename": audioFile.asset->originalFilename,
               "audioFileUrl": audioFile.asset->url
             }
           }
@@ -285,7 +302,6 @@ export async function GET() {
     const elapsedSeconds = (nowTimestamp - startTime) / 1000;
     const allowedDuration = currentTrack.duration;
 
-    // FIX LOGIKA SINKRONISASI: Jika lagu utama selesai, paksa filler berputar mengikuti timestamp absolut saat ini
     if (elapsedSeconds >= allowedDuration || elapsedSeconds > currentTrack.duration) {
       const totalTimelineSeconds = Math.floor(nowTimestamp / 1000);
       const currentFiller = getVirtualFillerTrack(totalTimelineSeconds);
@@ -300,7 +316,6 @@ export async function GET() {
       });
     }
 
-    // FIX UTAMA: Biarkan elapsed_seconds berjalan maju secara real-time absolut (tidak di-reset atau dibatasi rem)
     return NextResponse.json({
       active: true,
       title: currentTrack.title,
@@ -320,7 +335,7 @@ export async function GET() {
       artist: emergencyFiller.artist,
       program_title: "Audio Cadangan (Emergency)",
       audio_url: emergencyFiller.audio_url,
-      elapsed_seconds: emergencyFiller.elapsed_seconds,
+      elapsed_seconds: emergencyFiller.emergencyFiller,
       type: "fallback",
     });
   }
