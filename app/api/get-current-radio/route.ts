@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"; // Memaksa API selalu fresh tanpa membek
 // CONFIG INTERUPSI ADZAN OTOMATIS (PURWOKERTO / BANYUMAS)
 // =================================================================
 const ADZAN_URL = "/audio/adzan.mp3"; 
-const ADZAN_DURATION = 180; // Durasi adzan (3 menit = 180 detik)
+const ADZAN_DURATION = 300; // Durasi adzan (5 menit = 180 detik)
 
 // =================================================================
 // 1. KONFIGURASI JINGLE OTOMATIS
