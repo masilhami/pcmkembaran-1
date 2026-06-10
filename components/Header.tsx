@@ -71,6 +71,7 @@ export default function Header() {
     { name: "Data Ranting (PRM)", slug: "ranting" },
     { name: "Daftar Masjid", slug: "masjid" },
     { name: "Kajian Hari Ini", slug: "kajian-hari-ini" },
+    { name: "Jadwal Radio", slug: "jadwal-radio" }, 
     { name: "Galeri Kegiatan", slug: "galeri" },
     { name: "Kontak", slug: "kontak" },
   ];
@@ -96,12 +97,33 @@ export default function Header() {
           margin-right: 8px; display: inline-block; animation: pulse-red 2s infinite;
         }
 
+        /* 🌟 CSS DROPDOWN INTERAKTIF */
+        .dropdown-parent { position: relative; display: flex; align-items: center; }
+        .dropdown-box { 
+          position: absolute; top: 100%; left: 0; background-color: #ffffff; 
+          min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1); 
+          border-radius: 4px; padding: 4px 0; list-style: none; margin: 0;
+          opacity: 0; visibility: hidden; transform: translateY(10px);
+          transition: all 0.2s ease; z-index: 5000; border: 1px solid #eee;
+        }
+        .dropdown-parent:hover .dropdown-box { 
+          opacity: 1; visibility: visible; transform: translateY(0); 
+        }
+        .dropdown-item-link {
+          color: #444 !important; display: block; padding: 10px 16px; 
+          text-decoration: none; font-size: 11px; font-weight: 700; 
+          text-transform: uppercase; transition: 0.2s; white-space: nowrap;
+        }
+        .dropdown-item-link:hover { 
+          background-color: #f5f5f5; color: var(--abah-blue) !important; 
+        }
+
         /* 🛡️ BANNER ULTRA-SLIM & GLOW */
         .header-banner-right { 
           display: flex; 
           justify-content: flex-end;
           width: 100%;
-          height: 110px; /* Diperkecil agar header ramping */
+          height: 110px;
           transition: 0.3s; 
           flex: 1;
         }
@@ -125,7 +147,7 @@ export default function Header() {
           font-size: 13.8px; 
           color: #666; font-weight: 700; text-transform: uppercase;
           display: block; text-align: justify; text-align-last: justify; 
-          width: 100%; margin-top: 2px; /* Lebih mepet ke atas */
+          width: 100%; margin-top: 2px;
         }
 
         @media (max-width: 992px) { 
@@ -163,7 +185,7 @@ export default function Header() {
           </div>
 
           <div className="top-right-group" style={{ flex: 1, display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-            <Link href="https://sociabuzz.com/pcmkembaran/tribe" style={{ backgroundColor: 'var(--abah-blue)', color: '#ffffff', padding: '6px 15px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', textDecoration: 'none', textTransform: 'uppercase' }}>DONASI</Link>
+            <Link href="https://sociabuzz.com/pcmkembaran/tribe" style={{ backgroundColor: 'var(--abah-blue)', color: '#ffffff', padding: '6px 15px', borderRadius: '20px', fontSize: '11px', fontweight: '800', textDecoration: 'none', textTransform: 'uppercase' }}>DONASI</Link>
             <button 
               onClick={handleAuthAction}
               className="auth-btn"
@@ -194,7 +216,7 @@ export default function Header() {
       </div>
       {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1900 }}></div>}
 
-      {/* LAPIS 2: LOGO & PHOTO BANNER - SYNC WIDTH 1200px & PADDING SLIM */}
+      {/* LAPIS 2: LOGO & PHOTO BANNER */}
       <div className="logo-section" style={{ backgroundColor: '#fff', padding: '2px 0' }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', padding: '0 15px' }}>
           
@@ -245,16 +267,30 @@ export default function Header() {
 
         <nav className="secondary-nav" style={{ backgroundColor: '#f9f9f9', borderBottom: '1px solid #eee' }}>
           <div className="container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <ul className="lapis4-list" style={{ display: 'flex', listStyle: 'none', padding: 0, margin: 0, overflowX: 'auto' }}>
+            <ul className="lapis4-list" style={{ display: 'flex', listStyle: 'none', padding: 0, margin: 0, overflowX: 'visible' }}>
               {lapis4Menus.map((m, index) => (
                 <li key={m.slug} style={{ display: 'flex', alignItems: 'center' }}>
                   <Link href={`/${m.slug}`} className="lapis4-link">
                     {m.slug === "kajian-hari-ini" && <span className="signal-indicator"></span>}
                     {m.name.toUpperCase()}
                   </Link>
-                  {index < lapis4Menus.length - 1 && <span style={{ color: '#ccc', fontSize: '10px' }}>|</span>}
+                  <span style={{ color: '#ccc', fontSize: '10px' }}>|</span>
                 </li>
               ))}
+
+              {/* 🌟 KUSTOMISASI: SEKARANG TULISAN "RADIO" BISA DIKLIK MENUJU /radio */}
+              <li className="dropdown-parent" style={{ display: 'flex', alignItems: 'center' }}>
+                <Link href="/radio" className="lapis4-link">
+                  RADIO <span style={{ fontSize: '8px', marginLeft: '4px' }}>▼</span>
+                </Link>
+                <ul className="dropdown-box">
+                  <li>
+                    <Link href="/jadwal-radio" className="dropdown-item-link">
+                      Jadwal Radio
+                    </Link>
+                  </li>
+                </ul>
+              </li>
             </ul>
           </div>
         </nav>

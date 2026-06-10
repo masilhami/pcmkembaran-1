@@ -30,11 +30,19 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
-// Fungsi utama: Menghubungi backend terpadu get-current-radio (Tanpa cache)
+// Fungsi utama: Menghubungi backend terpadu get-current-radio (Diproteksi try-catch dari crash network)
 async function fetchCurrentRadioStatusFromBackend() {
-  const res = await fetch("/api/get-current-radio", { cache: "no-store" });
-  if (!res.ok) throw new Error("Radio API offline");
-  return await res.json();
+  try {
+    const res = await fetch("/api/get-current-radio", { cache: "no-store" });
+    if (!res.ok) {
+      console.warn("Radio API backend offline atau sedang sibuk.");
+      return { active: false };
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("Koneksi internet tersendat, gagal sinkronisasi radio:", err);
+    return { active: false }; // Kembalikan objek aman penangkal Console TypeError murni
+  }
 }
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
@@ -62,7 +70,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [metadata, setMetadata] = useState({
     title: "Mencari Sinyal...",
-    artist: "Radio Suara Al Muttaqin",
+    artist: "Radio Suara Berkemajuan", // 🌟 FIX: Nama stasiun dikunci sah di sini
     art: "/bg-player.png",
   });
 
@@ -203,7 +211,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         setYoutubeVideoId(null);
         setMetadata({ 
           title: data?.title || "Siaran Sedang Offline", 
-          artist: data?.artist || "Radio Suara Al Muttaqin", 
+          artist: data?.artist || "Radio Suara Berkemajuan", // 🌟 FIX
           art: "/bg-player.png" 
         });
         setListeners(0);
@@ -221,7 +229,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         setIsYouTubeLive(true);
         setMetadata({
           title: data.title || "Live Streaming YouTube",
-          artist: data.artist || "Pondok Pesantren Al Muttaqin",
+          artist: data.artist || "PCM Kembaran",
           art: data.thumbnail || "/bg-player.png",
         });
         setListeners(1);
@@ -229,15 +237,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 🌟 KONDISI B: JALUR INTERUPSI ADZAN OTOMATIS (WILAYAH PURWOKERTO)
-      // Dipisahkan murni dari Catch-Up Seek dan diamankan dari loop reloading .load()
+      // KONDISI B: JALUR INTERUPSI ADZAN OTOMATIS (WILAYAH PURWOKERTO)
       if (currentType === "adzan") {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
 
         setMetadata({
           title: data.title || "Panggilan Adzan Sholat",
-          artist: data.artist || "Radio Suara Al Muttaqin",
+          artist: data.artist || "Radio Suara Berkemajuan", // 🌟 FIX
           art: "/bg-player.png",
         });
 
@@ -266,14 +273,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      // 🌟 KONDISI C: JALUR LIVE RELAY FM / STREAMING EKSTERNAL
+      // KONDISI C: JALUR LIVE RELAY FM / STREAMING EKSTERNAL
       if (currentType === "live_relay" || currentType.includes("relay")) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
 
         setMetadata({
           title: data.title || "Relay Radio FM / Live Stream",
-          artist: data.artist || "Radio Suara Al Muttaqin",
+          artist: data.artist || "Radio Suara Berkemajuan", // 🌟 FIX
           art: data.thumbnail || "/bg-player.png",
         });
 
@@ -299,8 +306,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         setYoutubeVideoId(null);
         
         setMetadata({
-          title: data.title || "Radio Suara Al Muttaqin",
-          artist: data.artist || "Menginspirasi Hati Menguatkan Iman",
+          title: data.title || "Radio Suara Berkemajuan", // 🌟 FIX
+          artist: data.artist || "Dakwah Berkemajuan Mencerahkan Kehidupan",
           art: data.thumbnail || "/bg-player.png",
         });
 
@@ -332,14 +339,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     } catch (error) {
       console.error("Gagal sinkronisasi data stream radio:", error);
-      setMetadata({ title: "Hubungan Terputus...", artist: "Radio Suara Al Muttaqin", art: "/bg-player.png" });
+      setMetadata({ title: "Hubungan Terputus...", artist: "Radio Suara Berkemajuan", art: "/bg-player.png" }); // 🌟 FIX
       setListeners(0);
     }
   }, [resetMp3PlaybackCompletely]);
 
   useEffect(() => {
     fetchMetadata();
-    const interval = setInterval(fetchMetadata, 15000); // Polling metadata fresh per 15 detik
+    const interval = setInterval(fetchMetadata, 15000); 
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
