@@ -191,7 +191,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, [JINGLE_FILE]);
 
   // =================================================================
-  // LOGIKA BARU: KONSUMSI LANGSUNG HASIL PENYARINGAN BACKEND API
+  // SINKRONISASI AKTIF: PEMBAGIAN TR TRANSMISI AUDIO SECARA AMAN
   // =================================================================
   const fetchMetadata = useCallback(async () => {
     try {
@@ -200,17 +200,22 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Jika backend menyatakan siaran offline/gagal muat data dokumen
       if (!data || !data.active) {
         setIsYouTubeLive(false);
+        setYoutubeVideoId(null);
         setMetadata({ 
           title: data?.title || "Siaran Sedang Offline", 
           artist: data?.artist || "Radio Suara Al Muttaqin", 
           art: "/bg-player.png" 
         });
         setListeners(0);
+        lastSyncedUrlRef.current = ""; // Reset pengunci agar sinkron ulang saat online
         return;
       }
 
+      // Normalisasi tipe data ke huruf kecil agar anti-mismatch string
+      const currentType = String(data.type || "").toLowerCase();
+
       // KONDISI A: JALUR LIVE STREAMING YOUTUBE
-      if (data.type === "youtube_live") {
+      if (currentType === "youtube_live" || currentType.includes("youtube")) {
         resetMp3PlaybackCompletely();
         setYoutubeVideoId(data.youtube_video_id);
         setIsYouTubeLive(true);
@@ -220,11 +225,76 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           art: data.thumbnail || "/bg-player.png",
         });
         setListeners(1);
+        lastSyncedUrlRef.current = "";
+        return;
+      }
+
+      // 🌟 KONDISI B: JALUR INTERUPSI ADZAN OTOMATIS (WILAYAH PURWOKERTO)
+      // Dipisahkan murni dari Catch-Up Seek dan diamankan dari loop reloading .load()
+      if (currentType === "adzan") {
+        setIsYouTubeLive(false);
+        setYoutubeVideoId(null);
+
+        setMetadata({
+          title: data.title || "Panggilan Adzan Sholat",
+          artist: data.artist || "Radio Suara Al Muttaqin",
+          art: "/bg-player.png",
+        });
+
+        const audio = audioRef.current;
+        if (audio && data.audio_url) {
+          if (lastSyncedUrlRef.current !== data.audio_url) {
+            lastSyncedUrlRef.current = data.audio_url;
+            audio.src = data.audio_url;
+            audio.load();
+
+            if (data.elapsed_seconds && data.elapsed_seconds > 2) {
+              audio.currentTime = data.elapsed_seconds;
+            }
+
+            if (isPlayingRef.current) {
+              audio.play().catch(err => console.warn("Autoplay block protection:", err));
+            }
+          } else {
+            // Jika audio adzan sedang mengalir, terapkan toleransi 6 detik agar tidak loncat suara
+            if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
+              audio.currentTime = data.elapsed_seconds;
+            }
+          }
+        }
+        setListeners(1);
         return;
       }
       
-      // KONDISI B: JALUR PLAYLIST MP3 (SANITY ATAU FILLER)
-      if (data.type === "playlist_mp3" || data.audio_url) {
+      // 🌟 KONDISI C: JALUR LIVE RELAY FM / STREAMING EKSTERNAL
+      if (currentType === "live_relay" || currentType.includes("relay")) {
+        setIsYouTubeLive(false);
+        setYoutubeVideoId(null);
+
+        setMetadata({
+          title: data.title || "Relay Radio FM / Live Stream",
+          artist: data.artist || "Radio Suara Al Muttaqin",
+          art: data.thumbnail || "/bg-player.png",
+        });
+
+        const audio = audioRef.current;
+        if (audio && data.audio_url) {
+          if (lastSyncedUrlRef.current !== data.audio_url) {
+            lastSyncedUrlRef.current = data.audio_url;
+            audio.src = data.audio_url;
+            audio.load();
+
+            if (isPlayingRef.current) {
+              audio.play().catch(err => console.warn("Autoplay block protection:", err));
+            }
+          }
+        }
+        setListeners(1);
+        return;
+      }
+      
+      // KONDISI D: JALUR PEMUTAR FILE MP3 (PLAYLIST, MAIN PRISMA, ATAU FILLER JEDA)
+      if (data.audio_url) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
         
@@ -236,12 +306,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const audio = audioRef.current;
         if (audio && data.audio_url) {
-          // Sinkronisasi ganti lagu/source audio baru
-          if (audio.src !== data.audio_url) {
+          if (lastSyncedUrlRef.current !== data.audio_url) {
+            lastSyncedUrlRef.current = data.audio_url;
             audio.src = data.audio_url;
             audio.load();
             
-            // JALANKAN CATCH-UP SEEK: Lompatkan detik player ke detik berjalan riil di server
             if (data.elapsed_seconds && data.elapsed_seconds > 2) {
               audio.currentTime = data.elapsed_seconds;
             }
@@ -250,8 +319,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               audio.play().catch(err => console.warn("Autoplay block protection:", err));
             }
           } else {
-            // JIKA URL-NYA SAMA (LAGU YANG SAMA), TERAPKAN TOLERANSI SELISIH DETEKSI DETIK (MAX SELISIH 6 DETIK)
-            // Ini untuk mencegah lagu loncat-loncat akibat delay koneksi fetch berkala
+            // Terapkan sistem toleransi selisih 6 detik agar MP3 mengalir mulus tanpa patah-patah
             if (data.elapsed_seconds && Math.abs(audio.currentTime - data.elapsed_seconds) > 6) {
               audio.currentTime = data.elapsed_seconds;
             }

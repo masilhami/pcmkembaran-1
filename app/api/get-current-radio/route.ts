@@ -5,6 +5,12 @@ import { client } from "@/lib/sanity.client"; // Dipertahankan sesuai path impor
 export const dynamic = "force-dynamic"; // Memaksa API selalu fresh tanpa membeku di cache Vercel
 
 // =================================================================
+// CONFIG INTERUPSI ADZAN OTOMATIS (PURWOKERTO / BANYUMAS)
+// =================================================================
+const ADZAN_URL = "/audio/adzan.mp3"; 
+const ADZAN_DURATION = 180; // Durasi adzan (3 menit = 180 detik)
+
+// =================================================================
 // 1. KONFIGURASI JINGLE OTOMATIS
 // =================================================================
 const JINGLE_URL = "/audio/jingle-pcm.mp3";
@@ -107,6 +113,38 @@ function getVirtualFillerTrack(gapSeconds: number) {
   };
 }
 
+// 🌟 FUNGSI BARU: Mengambil Jadwal Sholat Kemenag RI (ID Kota Purwokerto/Banyumas: 1301)
+async function getAdzanMinutesToday(): Promise<{ [key: string]: number }> {
+  try {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const date = String(today.getDate()).padStart(2, '0');
+
+    // Tembak API Jadwal Sholat resmi Kemenag via MyQuran yang stabil & gratis
+    const res = await fetch(`https://api.myquran.com/v2/sholat/jadwal/1301/${year}/${month}/${date}`, { 
+      next: { revalidate: 3600 } // Di-cache di memory selama 1 jam biar gak overload request
+    });
+    const json = await res.json();
+
+    if (json?.status && json?.data?.jadwal) {
+      const j = json.data.jadwal;
+      return {
+        subuh: timeToMinutes(j.subuh),
+        dzuhur: timeToMinutes(j.dzuhur),
+        ashar: timeToMinutes(j.ashar),
+        maghrib: timeToMinutes(j.maghrib),
+        isya: timeToMinutes(j.isya),
+      };
+    }
+  } catch (err) {
+    console.error("Gagal mengambil API Jadwal Sholat Kemenag Purwokerto:", err);
+  }
+
+  // Fallback data statis estimasi Purwokerto jika seandainya koneksi API Kemenag mendadak down/RTO
+  return { subuh: 275, dzuhur: 710, ashar: 915, maghrib: 1075, isya: 1145 };
+}
+
 // =================================================================
 // MAIN HANDLER GET
 // =================================================================
@@ -116,8 +154,55 @@ export async function GET() {
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
 
+    // Ekstraksi Jam, Menit, dan Detik lokal Asia/Jakarta (WIB) murni
+    const timeFormatter = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+
+    const timeParts = timeFormatter.formatToParts(now);
+    const currentHours = Number(timeParts.find(p => p.type === 'hour')?.value || 0);
+    const currentMinutes = Number(timeParts.find(p => p.type === 'minute')?.value || 0);
+    const currentSecs = Number(timeParts.find(p => p.type === 'second')?.value || 0);
+    
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
     // =================================================================
-    // 0. PRIORITAS UTAMA: DETEKSI JADWAL HYBRID + HARI DARI SANITY CMS
+    // 🌟 PRIORITAS UTAMA (TAHTA TERTINGGI): CEK WAKTU MASUK ADZAN PURWOKERTO
+    // =================================================================
+    try {
+      const jadwalSholat = await getAdzanMinutesToday();
+      const namaWaktuSholat = Object.keys(jadwalSholat).find(key => {
+        const waktuSholatMenit = jadwalSholat[key];
+        const selisihDetik = ((currentTotalMinutes - waktuSholatMenit) * 60) + currentSecs;
+        return selisihDetik >= 0 && selisihDetik < ADZAN_DURATION;
+      });
+
+      if (namaWaktuSholat) {
+        const waktuSholatMenit = jadwalSholat[namaWaktuSholat];
+        const elapsedAdzanSeconds = ((currentTotalMinutes - waktuSholatMenit) * 60) + currentSecs;
+
+        return NextResponse.json({
+          active: true,
+          type: "adzan", // Dipahami Frontend sebagai track sakral tanpa Catch-Up Seek berlebih
+          youtube_video_id: null,
+          thumbnail: "/bg-player.png",
+          title: `Panggilan Adzan - Waktu ${namaWaktuSholat.toUpperCase()}`,
+          artist: "Radio Suara Al Muttaqin",
+          program_title: "Adzan Otomatis Wilayah Purwokerto",
+          audio_url: ADZAN_URL,
+          elapsed_seconds: elapsedAdzanSeconds,
+        });
+      }
+    } catch (adzanError) {
+      console.error("Gagal mengevaluasi interupsi waktu adzan:", adzanError);
+    }
+
+    // =================================================================
+    // PRIORITAS KEDUA: DETEKSI JADWAL HYBRID + HARI DARI SANITY CMS
     // =================================================================
     try {
       const sanityQuery = `
@@ -145,21 +230,6 @@ export async function GET() {
       const config = await client.fetch(sanityQuery, {}, { cache: 'no-store' });
 
       if (config && config.schedules && Array.isArray(config.schedules)) {
-        const timeFormatter = new Intl.DateTimeFormat('id-ID', {
-          timeZone: 'Asia/Jakarta',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        });
-
-        const timeParts = timeFormatter.formatToParts(now);
-        const currentHours = Number(timeParts.find(p => p.type === 'hour')?.value || 0);
-        const currentMinutes = Number(timeParts.find(p => p.type === 'minute')?.value || 0);
-        const currentSecs = Number(timeParts.find(p => p.type === 'second')?.value || 0);
-        
-        const currentTotalMinutes = currentHours * 60 + currentMinutes;
-
         const dayFormatter = new Intl.DateTimeFormat('en-US', {
           timeZone: 'Asia/Jakarta',
           weekday: 'long'
@@ -207,9 +277,6 @@ export async function GET() {
           // --- MANAJEMEN MODE TRANS-TRANSMISI: LIVE RELAY (ICECAST/BUTT) ---
           if (isLiveRelay) {
             const cleanRelayUrl = activeSchedule.relayUrl?.trim() || "";
-            
-            // 🌟 PERBAIKAN UTAMA: Jika ada URL relay dari Sanity, bungkus jalurnya melewati 
-            // Reverse Proxy internal agar protokolnya aman (https) dan sample rate-nya otomatis rata (44.1kHz).
             const secureAudioUrl = cleanRelayUrl 
               ? `/api/radio-stream?url=${encodeURIComponent(cleanRelayUrl)}` 
               : "/api/radio-stream";
@@ -222,7 +289,7 @@ export async function GET() {
               title: activeSchedule.eventName || "Live Streaming Radio",
               artist: activeSchedule.speaker || "PCM Kembaran",
               program_title: stationName,
-              audio_url: secureAudioUrl, // 👈 Terproteksi dan anti-cempreng
+              audio_url: secureAudioUrl,
               elapsed_seconds: 0
             });
           }
@@ -274,7 +341,7 @@ export async function GET() {
     }
 
     // =================================================================
-    // A. JINGLE TIAP 5 MENIT
+    // PRIORITAS KETIGA: JINGLE TIAP 5 MENIT
     // =================================================================
     if (currentMinute % 5 === 0 && currentMinute !== 0 && currentSecond < JINGLE_DURATION) {
       return NextResponse.json({
@@ -288,7 +355,7 @@ export async function GET() {
     }
 
     // =================================================================
-    // B. JALUR CADANGAN (PRISMA)
+    // PRIORITAS KEEMPAT: JALUR CADANGAN (PRISMA)
     // =================================================================
     const currentTrack = await prisma.radioStream.findFirst({
       orderBy: {
@@ -297,7 +364,7 @@ export async function GET() {
     });
 
     // =================================================================
-    // C. JIKA TIDAK ADA JADWAL UTAMA SAMA SEKALI, PUTAR FILLER
+    // PRIORITAS KELIMA: JIKA TIDAK ADA JADWAL UTAMA SAMA SEKALI, PUTAR FILLER
     // =================================================================
     if (!currentTrack) {
       const nowTimestampSeconds = Math.floor(Date.now() / 1000);
@@ -319,7 +386,7 @@ export async function GET() {
     const allowedDuration = currentTrack.duration;
 
     // =================================================================
-    // D. JIKA AUDIO UTAMA MELEBIHI JATAH SLOT / SELESAI
+    // PRIORITAS KEENAM: JIKA AUDIO UTAMA MELEBIHI JATAH SLOT / SELESAI
     // =================================================================
     if (elapsedSeconds >= allowedDuration) {
       const gapSeconds = elapsedSeconds - allowedDuration;
@@ -338,7 +405,7 @@ export async function GET() {
     }
 
     // =================================================================
-    // E. KONDISI NORMAL
+    // KONDISI NORMAL (MP3 UTAMA DARI PRISMA)
     // =================================================================
     return NextResponse.json({
       active: true,
