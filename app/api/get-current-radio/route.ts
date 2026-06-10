@@ -25,7 +25,6 @@ const timeToMinutes = (timeStr: string): number => {
   return hours * 60 + minutes;
 };
 
-// Menghitung Virtual Timeline secara presisi berbasis akumulasi durasi riil antarlagu
 function getVirtualTrackFromPlaylist(
   playlist: Array<{title?: string, trackTitle?: string, duration?: number, url?: string, audioFileUrl?: string, speaker?: string, originalFilename?: string}>, 
   secondsElapsedSinceStart: number
@@ -44,12 +43,11 @@ function getVirtualTrackFromPlaylist(
     const d = getDuration(track);
     if (virtualTimeline >= accumulatedTime && virtualTimeline < accumulatedTime + d) {
       
-      // FIX UTAMA: Ekstrak dan bersihkan nama file jika judul sengaja dikosongkan oleh admin
       let finalTitle = track.trackTitle || track.title;
       if (!finalTitle && track.originalFilename) {
         finalTitle = track.originalFilename
-          .replace(/\.[^/.]+$/, "") // Hapus ekstensi seperti .mp3, .m4a
-          .replace(/[_-]+/g, " ")   // Ubah karakter strip/underscore jadi spasi rapi
+          .replace(/\.[^/.]+$/, "") 
+          .replace(/[_-]+/g, " ")   
           .trim();
       }
 
@@ -63,7 +61,6 @@ function getVirtualTrackFromPlaylist(
     accumulatedTime += d;
   }
 
-  // Fallback track pertama
   let fallbackTitle = playlist[0].trackTitle || playlist[0].title;
   if (!fallbackTitle && playlist[0].originalFilename) {
     fallbackTitle = playlist[0].originalFilename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
@@ -335,7 +332,7 @@ export async function GET() {
       artist: emergencyFiller.artist,
       program_title: "Audio Cadangan (Emergency)",
       audio_url: emergencyFiller.audio_url,
-      elapsed_seconds: emergencyFiller.emergencyFiller,
+      elapsed_seconds: emergencyFiller.elapsed_seconds, // 🌟 FIX SUCCESS
       type: "fallback",
     });
   }
