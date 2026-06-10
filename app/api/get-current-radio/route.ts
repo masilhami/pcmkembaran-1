@@ -25,12 +25,11 @@ const timeToMinutes = (timeStr: string): number => {
   return hours * 60 + minutes;
 };
 
-// FIX UTAMA: Menghitung Virtual Timeline secara presisi berbasis akumulasi durasi riil antarlagu
+// Menghitung Virtual Timeline secara presisi berbasis akumulasi durasi riil antarlagu
 function getVirtualTrackFromPlaylist(
   playlist: Array<{title?: string, trackTitle?: string, duration?: number, url?: string, audioFileUrl?: string, speaker?: string}>, 
   secondsElapsedSinceStart: number
 ) {
-  // Jika durasi tidak didefinisikan di playlist Sanity, asumsikan default 4 menit (240 detik) agar tidak crash
   const getDuration = (track: any) => Number(track.duration) || 240; 
   const totalDuration = playlist.reduce((acc, item) => acc + getDuration(item), 0);
 
@@ -38,7 +37,6 @@ function getVirtualTrackFromPlaylist(
     return { title: "Radio Suara Berkemajuan", audio_url: "", elapsed_seconds: 0, artist: "PCM Kembaran" };
   }
 
-  // Menentukan titik detik berjalan saat ini di dalam siklus total durasi playlist loop
   const virtualTimeline = Math.floor(Math.abs(secondsElapsedSinceStart)) % totalDuration;
   let accumulatedTime = 0;
 
@@ -49,7 +47,7 @@ function getVirtualTrackFromPlaylist(
         title: track.trackTitle || track.title || "Kajian Pilihan",
         audio_url: track.audioFileUrl || track.url || "",
         elapsed_seconds: virtualTimeline - accumulatedTime,
-        artist: track.speaker || "PCM Kembaran", // FIX: Mengirimkan data nama speaker/artist asli lagu ke frontend
+        artist: track.speaker || "PCM Kembaran", 
       };
     }
     accumulatedTime += d;
@@ -238,7 +236,7 @@ export async function GET() {
               youtube_video_id: null,
               thumbnail: "/bg-player.png",
               title: virtualTrack.title,
-              artist: virtualTrack.artist, // FIX: Menggunakan data nama pembicara riil per lagu dari track objek
+              artist: virtualTrack.artist, 
               program_title: stationName,
               audio_url: virtualTrack.audio_url,
               elapsed_seconds: virtualTrack.elapsed_seconds,
@@ -251,7 +249,7 @@ export async function GET() {
               youtube_video_id: null,
               thumbnail: "/bg-player.png",
               title: virtualFiller.title,
-              artist: virtualFiller.artist, // FIX: Sesuai penyanyi/murottal filler playlist asli
+              artist: virtualFiller.artist, 
               program_title: activeSchedule.eventName || stationName,
               audio_url: virtualFiller.audio_url,
               elapsed_seconds: virtualFiller.elapsed_seconds,
@@ -287,8 +285,9 @@ export async function GET() {
     const elapsedSeconds = (nowTimestamp - startTime) / 1000;
     const allowedDuration = currentTrack.duration;
 
+    // FIX LOGIKA SINKRONISASI: Jika lagu utama selesai, paksa filler berputar mengikuti timestamp absolut saat ini
     if (elapsedSeconds >= allowedDuration || elapsedSeconds > currentTrack.duration) {
-      const totalTimelineSeconds = Math.floor(startTime / 1000) + allowedDuration + (elapsedSeconds - allowedDuration);
+      const totalTimelineSeconds = Math.floor(nowTimestamp / 1000);
       const currentFiller = getVirtualFillerTrack(totalTimelineSeconds);
       return NextResponse.json({
         active: true,
@@ -301,13 +300,14 @@ export async function GET() {
       });
     }
 
+    // FIX UTAMA: Biarkan elapsed_seconds berjalan maju secara real-time absolut (tidak di-reset atau dibatasi rem)
     return NextResponse.json({
       active: true,
       title: currentTrack.title,
       artist: "Kajian Pilihan",
       program_title: currentTrack.title,
       audio_url: currentTrack.audio_url,
-      elapsed_seconds: elapsedSeconds > currentTrack.duration ? 0 : elapsedSeconds,
+      elapsed_seconds: Math.floor(elapsedSeconds), 
       type: "main",
     });
 

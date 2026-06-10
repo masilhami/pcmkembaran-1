@@ -16,8 +16,8 @@ interface AudioContextType {
     title: string; 
     artist: string; 
     art: string; 
-    audio_url?: string | null;          // FIX: Terdaftar agar MainPlayer.tsx aman
-    elapsed_seconds?: number | null;    // FIX: Terdaftar agar MainPlayer.tsx baris 55 aman
+    audio_url?: string | null;          
+    elapsed_seconds?: number | null;    
   };
   listeners: number;
   togglePlay: () => void;
@@ -52,7 +52,7 @@ async function fetchCurrentRadioStatusFromBackend() {
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<any>(null); // FIX: Menggunakan any untuk menghindari tabrakan tipe Context lokal vs Web API
+  const audioContextRef = useRef<any>(null); 
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const youtubeToggleRef = useRef<(() => void) | null>(null);
@@ -78,8 +78,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     title: "Mencari Sinyal...",
     artist: "Radio Suara Berkemajuan",
     art: "/bg-player.png",
-    audio_url: null as string | null,        // FIX: Inisialisasi awal properti
-    elapsed_seconds: null as number | null,  // FIX: Inisialisasi awal properti
+    audio_url: null as string | null,        
+    elapsed_seconds: null as number | null,  
   });
 
   const [isYouTubeLive, setIsYouTubeLive] = useState(false);
@@ -228,6 +228,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // FIX LOGIKA SINKRONISASI: Menyelaraskan buffer ke linimasa server asli tanpa interupsi reload konstan
       const handleAudioSourceSync = (audioUrl: string, elapsedSeconds?: number) => {
         const audio = audioRef.current;
         if (!audio || !audioUrl) return;
@@ -238,7 +239,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = audioUrl;
           audio.load();
 
-          if (elapsedSeconds && elapsedSeconds > 2) {
+          if (elapsedSeconds && elapsedSeconds > 0) {
             audio.currentTime = elapsedSeconds;
           }
 
@@ -256,7 +257,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             isAutoSwitchingRef.current = false;
           }
         } else {
-          if (elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 6) {
+          // RADIO MODE CATCH-UP: Jika user aktif mendengar namun timeline tertinggal > 5 detik akibat buffer stall, paksa melompat maju
+          if (isPlayingRef.current && elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 5) {
+            console.log("Menyelaraskan posisi audio ke detik live radio server:", elapsedSeconds);
             audio.currentTime = elapsedSeconds;
           }
         }
@@ -270,7 +273,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           artist: data.artist || "Radio Suara Berkemajuan",
           art: "/bg-player.png",
           audio_url: data.audio_url,
-          elapsed_seconds: data.elapsed_seconds // FIX: Terisi penuh
+          elapsed_seconds: data.elapsed_seconds 
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
@@ -285,7 +288,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           artist: data.artist || "Radio Suara Berkemajuan",
           art: data.thumbnail || "/bg-player.png",
           audio_url: data.audio_url,
-          elapsed_seconds: 0 // Live stream murni diset 0
+          elapsed_seconds: 0 
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
@@ -300,7 +303,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           artist: data.artist || "Dakwah Berkemajuan Mencerahkan Kehidupan",
           art: data.thumbnail || "/bg-player.png",
           audio_url: data.audio_url,
-          elapsed_seconds: data.elapsed_seconds // FIX: Terisi penuh
+          elapsed_seconds: data.elapsed_seconds 
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
@@ -347,6 +350,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // FIX LOGIKA UTAMA: Begitu tombol play diklik oleh user, tembak data server instant & geser currentTime ke posisi absolut radio saat ini
   const startPlayback = useCallback(async () => {
     try {
       const audio = audioRef.current;
@@ -355,16 +359,28 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         await audioContextRef.current.resume();
       }
 
-      if (audio && audio.src && audio.src !== "" && audio.src !== window.location.href) {
-        audio.volume = 1;
-        userStoppedRef.current = false;
-        setIsPlaying(true);
-        setHasError(false);
-        await audio.play();
-        return;
-      }
+      const freshData = await fetchCurrentRadioStatusFromBackend();
       userStoppedRef.current = false;
-      await fetchMetadata();
+      setIsPlaying(true);
+      setHasError(false);
+
+      if (audio) {
+        if (!audio.src || audio.src === "" || audio.src === window.location.href || (freshData && freshData.audio_url && audio.src !== freshData.audio_url)) {
+          if (freshData && freshData.audio_url) {
+            lastSyncedUrlRef.current = freshData.audio_url;
+            audio.src = freshData.audio_url;
+            audio.load();
+          }
+        }
+
+        if (freshData && freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
+          audio.currentTime = freshData.elapsed_seconds;
+        } else {
+          audio.currentTime = 0;
+        }
+
+        await audio.play();
+      }
     } catch (e) {
       console.error("Playback gagal:", e);
       setHasError(true);
