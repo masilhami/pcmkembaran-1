@@ -42,9 +42,9 @@ export default function BottomPlayer() {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
           whileTap={{ scale: 0.92 }}
-          pointer-events-auto
           onClick={() => {
-            if (isYouTubeLive) {
+            // FIX LOGIKA SAKLAR: Cek apa yang AKTIF berputar saat ini agar eksekusi satu nyawa sinkron
+            if (isYouTubePlaying) {
               toggleYouTubeAudio()
             } else {
               toggleLivePlayback()
@@ -120,6 +120,7 @@ export default function BottomPlayer() {
           key="play-btn"
           whileTap={{ scale: 0.92 }}
           onClick={() => {
+            // FIX LOGIKA SAKLAR: Mengikuti jenis mode pancaran jadwal aktif dari CMS agar tidak double sound
             if (isYouTubeLive) {
               toggleYouTubeAudio()
             } else {

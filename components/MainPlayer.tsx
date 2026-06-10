@@ -3,7 +3,7 @@
 import { Play, Square } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAudio } from '../context/AudioContext'
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function MainPlayer() {
   const { 
@@ -11,79 +11,29 @@ export default function MainPlayer() {
     metadata, 
     toggleLivePlayback, 
     isYouTubeLive, 
-    youtubeVideoId, 
-    setIsYouTubeLive,
     toggleYouTubeAudio,
     isYouTubePlaying,
-    registerYouTubeToggle,
   } = useAudio()
 
-  const playerContainerRef = useRef<HTMLDivElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const [mounted, setMounted] = useState(false)
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Menentukan status aktif gabungan dari state pusat (AudioProvider)
   const isOnAir = isPlaying || isYouTubePlaying
 
-  // ===================== YouTube Live handling =====================
-  useEffect(() => {
-    if (!youtubeVideoId) setIsYouTubeLive(false)
-  }, [youtubeVideoId, setIsYouTubeLive])
-
-  useEffect(() => {
-    if (isYouTubeLive) {
-      registerYouTubeToggle(toggleYouTubeAudio)
-    }
-    return () => {
-      registerYouTubeToggle(null)
-    }
-  }, [isYouTubeLive, toggleYouTubeAudio, registerYouTubeToggle])
-
-  // ===================== MP3 Player handling =======================
-  // Update audio src hanya jika berubah
-  useEffect(() => {
-    if (!isYouTubeLive && metadata.audio_url && audioRef.current) {
-      if (audioRef.current.src !== metadata.audio_url) {
-        audioRef.current.src = metadata.audio_url
-        audioRef.current
-          .play()
-          .catch((err) => console.warn('Audio play error:', err))
-      }
-    }
-  }, [metadata.audio_url, isYouTubeLive])
-
-  // Update currentTime dengan aman
-  useEffect(() => {
-    if (!isYouTubeLive && audioRef.current && metadata.elapsed_seconds != null) {
-      const audioEl = audioRef.current
-      const safeTime = Math.min(metadata.elapsed_seconds, audioEl.duration || metadata.elapsed_seconds)
-      audioEl.currentTime = safeTime
-    }
-  }, [metadata.elapsed_seconds, isYouTubeLive])
+  if (!mounted) {
+    return (
+      <div className="relative w-full max-w-5xl mx-auto p-4 md:p-6">
+        <div className="w-full h-[240px] rounded-3xl bg-slate-900/80 border border-white/10 animate-pulse" />
+      </div>
+    )
+  }
 
   return (
     <div className="relative w-full max-w-5xl mx-auto p-4 md:p-6">
-
-      {/* ===================== YouTube Live iframe ===================== */}
-      {isYouTubeLive && youtubeVideoId && (
-        <div ref={playerContainerRef} className="fixed bottom-0 right-0 w-[1px] h-[1px] z-50 overflow-hidden opacity-0">
-          <iframe
-            id="global-youtube-player"
-            src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=0&enablejsapi=1&playsinline=1`}
-            allow="autoplay; encrypted-media; gyroscope; accelerometer; cross-origin-isolated"
-            className="w-full h-full"
-            title="Live Player"
-          />
-        </div>
-      )}
-
-      {/* ===================== MP3 Audio Element ===================== */}
-      {!isYouTubeLive && (
-        <audio
-          ref={audioRef}
-          autoPlay
-          controls={false}
-          className="hidden"
-        />
-      )}
 
       {/* ===================== Glow Background ===================== */}
       <div className="absolute -left-10 top-10 h-48 w-48 md:h-72 md:w-72 rounded-full bg-cyan-500/20 blur-[100px] z-0" />
@@ -105,23 +55,26 @@ export default function MainPlayer() {
         </div>
 
         {/* Metadata */}
-        <div className="flex-1 w-full text-center md:text-left">
+        <div className="flex-1 w-full min-w-0 text-center md:text-left">
           <h1 className="text-2xl md:text-5xl font-bold text-white leading-tight">LIVE 24 JAM</h1>
-          <p className="mt-2 text-slate-400 text-sm md:text-lg truncate">{metadata.title}</p>
-          <p className="text-xs md:text-sm text-slate-500 truncate">{metadata.artist}</p>
+          <p className="mt-2 text-slate-400 text-sm md:text-lg truncate">{metadata.title || "Radio Streaming"}</p>
+          <p className="text-xs md:text-sm text-slate-500 truncate">{metadata.artist || "PCM Kembaran"}</p>
           
-          {isOnAir && (
-            <motion.div 
-              animate={{ opacity: [1, 0.2, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-              className="mt-3 md:mt-4 inline-block px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-red-500 bg-black/50 rounded-lg"
-            >
-              ON AIR
-            </motion.div>
-          )}
-          
-          <div className="mt-3 md:mt-4 block md:inline-flex items-center gap-2 text-[10px] md:text-xs text-cyan-300 uppercase tracking-[0.2em] md:tracking-[0.25em]">
-            PCM Kembaran • Muhammadiyah Islamic Broadcast
+          {/* FIX POSISI BARU: Menggabungkan ON AIR dan Teks Slogan ke dalam satu baris Flexbox */}
+          <div className="mt-3 md:mt-4 flex flex-col md:flex-row items-center md:justify-start gap-3 w-full min-w-0">
+            {isOnAir && (
+              <motion.div 
+                animate={{ opacity: [1, 0.2, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="flex-shrink-0 inline-block px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest text-red-500 bg-black/50 rounded-lg whitespace-nowrap"
+              >
+                ON AIR
+              </motion.div>
+            )}
+            
+            <div className="text-[10px] md:text-xs text-cyan-300 uppercase tracking-[0.2em] md:tracking-[0.25em] truncate max-w-full">
+              PCM Kembaran • Muhammadiyah Islamic Broadcast
+            </div>
           </div>
         </div>
 
@@ -130,7 +83,13 @@ export default function MainPlayer() {
           <motion.button
             key={isOnAir ? "stop" : "play"}
             whileTap={{ scale: 0.95 }}
-            onClick={toggleLivePlayback}
+            onClick={() => {
+              if (isYouTubeLive) {
+                toggleYouTubeAudio()
+              } else {
+                toggleLivePlayback()
+              }
+            }}
             className={`h-14 w-14 md:h-16 md:w-16 rounded-full flex items-center justify-center transition-all duration-300 ${isOnAir ? 'bg-red-500' : 'bg-cyan-500'}`}
           >
             {isOnAir ? <Square size={24} className="text-white" fill="white" /> : <Play size={24} className="text-white" fill="white" />}
