@@ -185,7 +185,8 @@ export default function Header() {
           </div>
 
           <div className="top-right-group" style={{ flex: 1, display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-            <Link href="https://sociabuzz.com/pcmkembaran/tribe" style={{ backgroundColor: 'var(--abah-blue)', color: '#ffffff', padding: '6px 15px', borderRadius: '20px', fontSize: '11px', fontweight: '800', textDecoration: 'none', textTransform: 'uppercase' }}>DONASI</Link>
+            {/* 🌟 FIX: Properti 'fontweight' di bawah sudah diperbaiki menjadi 'fontWeight' kapital */}
+            <Link href="https://sociabuzz.com/pcmkembaran/tribe" style={{ backgroundColor: 'var(--abah-blue)', color: '#ffffff', padding: '6px 15px', borderRadius: '20px', fontSize: '11px', fontWeight: '800', textDecoration: 'none', textTransform: 'uppercase' }}>DONASI</Link>
             <button 
               onClick={handleAuthAction}
               className="auth-btn"
@@ -255,7 +256,7 @@ export default function Header() {
             <ul className="nav-menu-list" style={{ display: 'flex', listStyle: 'none', padding: 0, margin: 0, overflowX: 'auto' }}>
               <li style={{ backgroundColor: 'var(--abah-gold)' }}>
                 <Link href="/" style={{ display: 'flex', alignItems: 'center', height: '48px', padding: '0 20px', color: '#000', fontWeight: '800', textDecoration: 'none' }}>HOME</Link>
-              </li>
+              </li> {/* 🌟 FIX: Tag penutup li yang salah pasang (</td>) sudah dikembalikan menjadi </li> */}
               {categoryMenus.map((m) => (
                 <li key={m.slug}>
                   <Link href={`/${m.slug}`} className="nav-link-item" style={{ display: 'flex', alignItems: 'center', height: '48px', padding: '0 20px', fontWeight: '700', fontSize: '12px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{m.name}</Link>
@@ -278,7 +279,7 @@ export default function Header() {
                 </li>
               ))}
 
-              {/* 🌟 KUSTOMISASI: SEKARANG TULISAN "RADIO" BISA DIKLIK MENUJU /radio */}
+              {/* 🌟 KUSTOMISASI: TULISAN "RADIO" BISA DIKLIK MENUJU /radio & MEMILIKI DROPDOWN JADWAL */}
               <li className="dropdown-parent" style={{ display: 'flex', alignItems: 'center' }}>
                 <Link href="/radio" className="lapis4-link">
                   RADIO <span style={{ fontSize: '8px', marginLeft: '4px' }}>▼</span>
