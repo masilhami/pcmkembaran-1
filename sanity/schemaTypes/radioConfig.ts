@@ -134,7 +134,7 @@ export default {
               name: 'relayAudioUrl',
               title: 'URL Stream Radio FM Target (Relay)',
               type: 'url',
-              description: 'Masukkan URL Icecast/Shoutcast resmi radio target. Contoh RadioMu: http://streaming.radiomu.id:8000/stream atau RRI: http://stream.rri.co.id:8000/pro3',
+              description: 'Masukkan URL Icecast/Shoutcast resmi radio target.',
               placeholder: 'http://streaming.radiomu.id:8000/stream',
               hidden: ({ parent }: any) => parent?.broadcastMode !== 'relay_stream',
               validation: (rule: Rule) =>
@@ -188,27 +188,50 @@ export default {
                   title: 'Track Audio',
                   icon: () => '🎵',
                   fields: [
-                    { name: 'trackTitle', title: 'Judul Audio', type: 'string', validation: (rule: Rule) => rule.required().error('Judul track audio tidak boleh kosong.') },
-                    { name: 'speaker', title: 'Narasumber / Pengisi', type: 'string' },
                     { 
-  name: 'audioFile', 
-  title: 'Upload File Audio', 
-  type: 'file',
-  // 👇 UPDATE BARIS INI: Tambahkan mime type untuk m4a/aac
-  options: { accept: 'audio/mp3, audio/mpeg, audio/m4a, audio/x-m4a, audio/aac' },
-  validation: (rule: Rule) => rule.required().error('Wajib mengunggah file audio.')
-},
+                      name: 'audioFile', 
+                      title: 'Upload File Audio', 
+                      type: 'file',
+                      options: { accept: 'audio/mp3, audio/mpeg, audio/m4a, audio/x-m4a, audio/aac' },
+                      validation: (rule: Rule) => rule.required().error('Wajib mengunggah file audio.')
+                    },
+                    { 
+                      name: 'trackTitle', 
+                      title: 'Judul Audio (Kosongkan jika ingin otomatis sesuai nama file)', 
+                      type: 'string',
+                      description: 'Jika dikosongkan, sistem web otomatis membaca nama file MP3 Anda sebagai judul.'
+                    },
+                    { 
+                      name: 'speaker', 
+                      title: 'Narasumber / Pengisi', 
+                      type: 'string',
+                      description: 'Bisa dikosongkan jika pembawa materi sama dengan pengisi acara utama di atas.',
+                    },
+                    {
+                      name: 'duration',
+                      title: 'Durasi Audio (Detik)',
+                      type: 'number',
+                      description: 'Wajib diisi agar perpindahan antar lagu di radio berjalan lancar tanpa jeda sunyi lama. Contoh: 3 menit 20 detik isi 200.',
+                      validation: (rule: Rule) => rule.required().positive().integer().error('Durasi audio dalam satuan detik wajib diisi.')
+                    }
                   ],
                   preview: {
                     select: {
                       title: 'trackTitle',
                       artist: 'speaker',
+                      filename: 'audioFile.asset.originalFilename'
                     },
                     prepare(selection: any) {
-                      const { title, artist } = selection
+                      const { title, artist, filename } = selection;
+                      
+                      // Membersihkan ekstensi nama file untuk fallback judul otomatis di preview studio
+                      const autoTitle = filename 
+                        ? filename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim()
+                        : 'Memuat data file...';
+
                       return {
-                        title: title || 'Track Tanpa Judul',
-                        subtitle: artist ? `👤 ${artist}` : '👤 PCM Kembaran',
+                        title: title || autoTitle || 'Track Tanpa Judul',
+                        subtitle: artist ? `👤 ${artist}` : '👤 Pengisi Acara Blok',
                       }
                     },
                   },
@@ -217,7 +240,6 @@ export default {
             },
           ],
           
-          // Layout preview list item di dashboard admin agar dinamis & informatif
           preview: {
             select: {
               title: 'eventName',
