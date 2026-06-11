@@ -10,6 +10,9 @@ const ADZAN_DURATION = 300; // 5 Menit otomatis memotong jadwal radio
 // Jalur murni domain tempat Radio PHP kamu berada dan terbukti lancar tanpa putus
 const LIVE_PHP_SERVER = "https://www.pcmkembaran.com"; 
 
+// 🌟 AUDIO EMERGENSI: Fallback jika Sanity & DB kosong agar stream.php tidak memutar ruang hampa
+const EMERGENCY_FALLBACK_AUDIO = "https://sdit.my.id/radio/SurahAlMulk-Saad-Al-Ghamdi.mp3";
+
 const timeToMinutes = (timeStr: string): number => {
   if (!timeStr) return 0;
   const [hours, minutes] = timeStr.split(":").map(Number);
@@ -24,7 +27,7 @@ async function getAdzanMinutesToday(): Promise<{ [key: string]: number }> {
     const date = String(today.getDate()).padStart(2, "0");
 
     const res = await fetch(`https://api.myquran.com/v2/sholat/jadwal/1301/${year}/${month}/${date}`, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 3600 } // Amankan cache jadwal sholat 1 jam
     });
     const json = await res.json();
 
@@ -63,7 +66,7 @@ export async function GET(request: NextRequest) {
   const currentMinutes = Number(timeParts.find(p => p.type === "minute")?.value || 0);
   const currentSecs = Number(timeParts.find(p => p.type === "second")?.value || 0);
   
-  // 🌟 PERBAIKAN SAKTI 1: Hitung total detik hari ini secara presisi untuk mencocokkan transisi adzan
+  // Hitung total detik hari ini secara presisi untuk mencocokkan transisi adzan
   const totalDetikSekarang = (currentHours * 3600) + (currentMinutes * 60) + currentSecs;
 
   // =========================================================================
@@ -84,8 +87,7 @@ export async function GET(request: NextRequest) {
       const totalDetikSholat = waktuSholatMenit * 60;
       const elapsedAdzanSeconds = totalDetikSekarang - totalDetikSholat;
 
-      // 🚀 PERBAIKAN SAKTI 2: Bypass adzan lokal ke sirkuit stream.php milik server PHP utama.
-      // Ini mencegah browser HTML5 mengalami crash buffer akibat melompat ke file statis lokal Next.js.
+      // Bypass adzan lokal ke sirkuit stream.php milik server PHP utama.
       const BYPASS_ADZAN_URL = `${LIVE_PHP_SERVER}/radio/stream.php?mode=adzan&stream_url=${encodeURIComponent(ADZAN_URL)}&current_seconds=${elapsedAdzanSeconds}`;
 
       return NextResponse.json({
@@ -136,7 +138,8 @@ export async function GET(request: NextRequest) {
       }
     `;
 
-    const config = await client.fetch(sanityQuery, {}, { cache: "no-store" });
+    // 🌟 PERBAIKAN SAKTI 1: Berikan revalidate 10 detik agar tidak membombardir server Sanity berulang kali
+    const config = await client.fetch(sanityQuery, {}, { next: { revalidate: 10 } });
     const stationName = config?.radioName || "Radio Suara Berkemajuan";
     programTitle = stationName;
 
@@ -238,7 +241,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 🌟 BYPASS UTAMA: Kirim URL terpadu langsung menembak server core stream PHP Hawkhost
+  // 🌟 PERBAIKAN SAKTI 2: Jika setelah Sanity & DB dicek URL tetap kosong, injeksikan file emergensi
+  if (!targetAudioUrl) {
+    targetAudioUrl = EMERGENCY_FALLBACK_AUDIO;
+    title = "Murottal Jeda - Surah Al-Mulk";
+    artist = "Saad Al-Ghamdi";
+    programTitle = "Audio Cadangan Sistem";
+  }
+
+  // BYPASS UTAMA: Kirim URL terpadu langsung menembak server core stream PHP Hawkhost
   const BYPASS_DIRECT_URL = `${LIVE_PHP_SERVER}/radio/stream.php?mode=${currentType}&stream_url=${encodeURIComponent(targetAudioUrl)}&current_seconds=${secondsSinceStarted}`;
 
   return NextResponse.json({

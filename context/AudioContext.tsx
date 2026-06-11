@@ -250,7 +250,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
 
-        // JIKA LINK SUARA BERBEDA (Ada pergantian jadwal lagu)
+        // 🌟 PERBAIKAN SAKTI: Deteksi jika target mengarah ke bypass pipa biner stream.php core utama
+        const isLiveStreamPipe = audioUrl.includes("stream.php") || audioUrl.includes("pcmkembaran.com");
+
+        // JIKA LINK SUARA BERBEDA (Ada pergantian jenis/jadwal lagu fundamental)
         if (lastSyncedUrlRef.current !== audioUrl) {
           lastSyncedUrlRef.current = audioUrl;
           
@@ -258,8 +261,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = audioUrl;
           audio.load();
 
-          // 🌟 FIX ANTI-SENDAT: Hanya set currentTime jika biner merupakan berkas statis lokal (bukan live stream php)
-          if (elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity && !audioUrl.includes("stream.php")) {
+          // 🌟 FIX ANTI-SENDAT: Jangan lakukan manual seeking frontend jika audio merupakan live stream pipa biner
+          if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity) {
             audio.currentTime = elapsedSeconds;
           }
 
@@ -311,12 +314,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (!audio) return;
 
     try {
-      // Kunci flag agar sinkronisasi latar belakang mengalah dan menghentikan interupsi src
       userStoppedRef.current = false;
       isAutoSwitchingRef.current = true;
       setHasError(false);
 
-      // Gunakan langsung data audio_url dari state metadata yang sudah siap di memory React
       const targetUrl = metadata.audio_url;
 
       if (targetUrl && targetUrl.trim() !== "" && targetUrl !== "null") {
@@ -325,15 +326,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = targetUrl;
         }
         
-        // 🌟 KUNCI UTAMA ANTI-SINKRONISASI RUSAK: Paksa browser melakukan handshake ulang secara bersih
         audio.load();
 
-        // 🌟 FIX LIVE STREAM: Jangan paksa set currentTime jika target mengarah ke endpoint live proxy stream.php
-        if (metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity && !targetUrl.includes("stream.php")) {
+        const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
+
+        // Amankan agar tidak memicu crash buffer pada pipa stream radio PHP
+        if (!isLiveStreamPipe && metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
           audio.currentTime = metadata.elapsed_seconds;
         }
       } else {
-        // Fallback darurat jika sewaktu-waktu state metadata awal kosong saat komponen mounting pertama kali
         const freshData = await fetchCurrentRadioStatusFromBackend();
         if (freshData && freshData.active && freshData.audio_url) {
           const fallbackUrl = freshData.audio_url;
@@ -341,13 +342,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = fallbackUrl;
           audio.load();
 
-          if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity && !fallbackUrl.includes("stream.php")) {
+          const isLiveStreamPipe = fallbackUrl.includes("stream.php") || fallbackUrl.includes("pcmkembaran.com");
+
+          if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
             audio.currentTime = freshData.elapsed_seconds;
           }
         }
       }
 
-      // Eksekusi Play biner audio HTML5 secara instan
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         await playPromise;
@@ -355,7 +357,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       setIsPlaying(true);
       
-      // Amankan kunci flag transisi dengan jeda milidetik pasca sukses berbunyi
       setTimeout(() => {
         isAutoSwitchingRef.current = false;
       }, 400);
