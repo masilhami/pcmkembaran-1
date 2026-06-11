@@ -101,6 +101,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const jingleIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isJinglePlayingRef = useRef(false);
 
+  // 🌟 SINKRONISASI JINGLE NYATA: Catat timestamp pemutaran agar konsisten 5-10 menit sekali
+  const lastJingleTimeRef = useRef<number>(Date.now());
+
   const JINGLE_INTERVAL = 5 * 60 * 1000; 
   const JINGLE_FILE = "/audio/jingle-pcm.mp3";
 
@@ -350,7 +353,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
           const isLiveStreamPipe = fallbackUrl.includes("stream.php") || fallbackUrl.includes("pcmkembaran.com");
 
-          if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+          if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
             audio.currentTime = freshData.elapsed_seconds;
           }
         }
@@ -363,6 +366,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       setIsPlaying(true);
       
+      // Sinkronkan ulang patokan waktu tunggu jingle sejak tombol play ditekan pertama kali
+      lastJingleTimeRef.current = Date.now();
+
       setTimeout(() => {
         isAutoSwitchingRef.current = false;
       }, 400);
@@ -426,17 +432,43 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isYouTubeLive, resetMp3PlaybackCompletely]);
 
+  // 🌟 PERBAIKAN SAKTI: Sistem Tracker Detik Jingle Akurat & Anti-Throttle Browser
   useEffect(() => {
     const checkAndTriggerJingle = () => {
-      if (isPlayingRef.current && !isYouTubePlayingRef.current) {
-        playJingle();
+      // Jika radio mati atau sedang setel YouTube, amankan timestamp agar tidak menumpuk
+      if (!isPlayingRef.current || isYouTubePlayingRef.current) {
+        lastJingleTimeRef.current = Date.now();
+        return;
+      }
+
+      const sekarang = Date.now();
+      const selisihWaktu = sekarang - lastJingleTimeRef.current;
+
+      // Jalankan jika sudah masuk target interval (5 menit murni)
+      if (selisihWaktu >= JINGLE_INTERVAL) {
+        const currentTitle = (metadata.title || "").toLowerCase();
+        const sedangAdzan = currentTitle.includes("adzan") || currentTitle.includes("panggilan");
+
+        if (!isJinglePlayingRef.current && !sedangAdzan) {
+          console.log("⏰ Mengumandangkan Jingle PCM tepat waktu.");
+          lastJingleTimeRef.current = sekarang; 
+          playJingle();
+        } 
+        else if (sedangAdzan) {
+          // Jika pas 5 menit bertepatan dengan adzan, mundurkan tracker 1 menit 
+          // agar jingle langsung berbunyi sesaat setelah adzan selesai berkumandang
+          lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
+        }
       }
     };
-    jingleIntervalRef.current = setInterval(checkAndTriggerJingle, JINGLE_INTERVAL);
+
+    // Jalankan pemantau super ringan tiap 1 detik (1000ms) agar kebal pembatasan background browser
+    jingleIntervalRef.current = setInterval(checkAndTriggerJingle, 1000);
+    
     return () => {
       if (jingleIntervalRef.current) clearInterval(jingleIntervalRef.current);
     };
-  }, [playJingle, JINGLE_INTERVAL]);
+  }, [playJingle, JINGLE_INTERVAL, metadata.title]);
 
   return (
     <AudioContext.Provider
