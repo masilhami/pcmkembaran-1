@@ -305,50 +305,66 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // AKSI UTAMA SAAT KLIK TOMBOL PLAY (MURNI ELEMENT-BASED SAKTI)
+  // 🌟 PERBAIKAN SAKTI: Jalur Play Instan Tanpa Delay API (Anti Lempar Klik Ganda)
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
     try {
+      // Kunci flag agar sinkronisasi latar belakang mengalah dan menghentikan interupsi src
       userStoppedRef.current = false;
       isAutoSwitchingRef.current = true;
       setHasError(false);
 
-      // Ambil data terbaru dari backend
-      const freshData = await fetchCurrentRadioStatusFromBackend();
-      
-      if (freshData && freshData.active && freshData.audio_url) {
-        const targetUrl = freshData.audio_url;
+      // Gunakan langsung data audio_url dari state metadata yang sudah siap di memory React
+      const targetUrl = metadata.audio_url;
 
+      if (targetUrl && targetUrl.trim() !== "" && targetUrl !== "null") {
         if (!audio.src || audio.src === "" || audio.src === window.location.href || lastSyncedUrlRef.current !== targetUrl) {
           lastSyncedUrlRef.current = targetUrl;
           audio.src = targetUrl;
+          audio.load();
         }
-        
-        audio.load();
 
-        if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
-          audio.currentTime = freshData.elapsed_seconds;
+        if (metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+          audio.currentTime = metadata.elapsed_seconds;
+        }
+      } else {
+        // Fallback darurat jika sewaktu-waktu state metadata awal kosong saat komponen mounting pertama kali
+        const freshData = await fetchCurrentRadioStatusFromBackend();
+        if (freshData && freshData.active && freshData.audio_url) {
+          const fallbackUrl = freshData.audio_url;
+          lastSyncedUrlRef.current = fallbackUrl;
+          audio.src = fallbackUrl;
+          audio.load();
+
+          if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+            audio.currentTime = freshData.elapsed_seconds;
+          }
         }
       }
 
-      // Jalankan play murni HTML5 element tanpa tersumbat node web audio api
+      // Eksekusi Play biner audio HTML5 secara instan
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         await playPromise;
       }
 
       setIsPlaying(true);
-      isAutoSwitchingRef.current = false;
+      
+      // Amankan kunci flag transisi dengan jeda milidetik pasca sukses berbunyi
+      setTimeout(() => {
+        isAutoSwitchingRef.current = false;
+      }, 400);
+
     } catch (e) {
-      console.error("Playback ditolak oleh kebijakan browser:", e);
+      console.error("Playback gagal dieksekusi pada klik pertama:", e);
       setHasError(true);
       setIsPlaying(false);
       userStoppedRef.current = true;
       isAutoSwitchingRef.current = false;
     }
-  }, []);
+  }, [metadata.audio_url, metadata.elapsed_seconds]); // Masukkan state metadata ke dependency array
 
   const togglePlay = useCallback(async () => {
     if (isPlaying) {
@@ -433,7 +449,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         youtubeThumbnail,
       }}
     >
-      {/* 🌟 FIX UTAMA: crossOrigin DIBUANG agar bypass total blokade CORS streaming biner */}
       <audio
         ref={audioRef}
         preload="none"
