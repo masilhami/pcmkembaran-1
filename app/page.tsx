@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { client } from "@/lib/sanity.client"; 
 import { getAllPosts, getKhutbahPosts } from "@/lib/sanity.query";
 import { Suspense } from "react"; // 🌟 1. Import Suspense murni bawaan React
