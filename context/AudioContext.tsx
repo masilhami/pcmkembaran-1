@@ -36,7 +36,7 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
-// 🌟 PERBAIKAN MUTLAK: Paksa fetch selalu meminta query string ?type=metadata agar server melempar JSON teks data
+// Mengambil status radio terbaru dari backend Next.js
 async function fetchCurrentRadioStatusFromBackend() {
   try {
     const res = await fetch("/api/radio-stream?type=metadata", { cache: "no-store" });
@@ -203,6 +203,36 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [JINGLE_FILE, metadata.title]);
 
+  // Inisialisasi Audio Engine Web Audio API secara aman
+  const initAudio = useCallback(() => {
+    if (isInitialized.current || !audioRef.current) return;
+
+    try {
+      const WebAudioContext = typeof window !== "undefined" 
+        ? (window.AudioContext || (window as any).webkitAudioContext) 
+        : null;
+
+      if (!WebAudioContext) return;
+      
+      const audioCtx = new WebAudioContext();
+      audioContextRef.current = audioCtx;
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaElementSource(audioRef.current);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      sourceRef.current = source;
+
+      isInitialized.current = true;
+    } catch (err) {
+      console.error("Gagal inisialisasi Audio Engine:", err);
+    }
+  }, []);
+
   const fetchMetadata = useCallback(async () => {
     try {
       const data = await fetchCurrentRadioStatusFromBackend();
@@ -242,11 +272,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       const handleAudioSourceSync = (audioUrl: string, elapsedSeconds?: number) => {
         const audio = audioRef.current;
-        if (!audio || !audioUrl) return;
+        if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
 
+        // JIKA LINK SUARA BERBEDA (Ada pergantian jadwal lagu)
         if (lastSyncedUrlRef.current !== audioUrl) {
           lastSyncedUrlRef.current = audioUrl;
-          isAutoSwitchingRef.current = true;
+          
+          // Nyalakan bendera auto-switching agar event onPause native tidak merusak state UI tombol
+          isAutoSwitchingRef.current = true; 
+          
           audio.src = audioUrl;
           audio.load();
 
@@ -254,13 +288,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             audio.currentTime = elapsedSeconds;
           }
 
+          // Jika user sedang mendengarkan, langsung paksa putar lagu baru hasil sinkronisasi
           if (isPlayingRef.current && !userStoppedRef.current) {
             audio.play()
               .then(() => { 
                 isAutoSwitchingRef.current = false; 
               })
               .catch(err => {
-                console.warn("Autoplay ditolak saat sinkronisasi:", err);
+                console.warn("Autoplay ditolak saat sinkronisasi lagu baru:", err);
                 isAutoSwitchingRef.current = false;
                 setIsPlaying(false);
               });
@@ -268,6 +303,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             isAutoSwitchingRef.current = false;
           }
         } else {
+          // JIKA LINK SAMA: Cukup samakan durasi detik agar sinkron dengan user lain jika selisih > 4 detik
           if (isPlayingRef.current && elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 4) {
             audio.currentTime = elapsedSeconds;
           }
@@ -300,86 +336,65 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  const initAudio = useCallback(() => {
-    if (isInitialized.current || !audioRef.current) return;
-
-    try {
-      const WebAudioContext = typeof window !== "undefined" 
-        ? (window.AudioContext || (window as any).webkitAudioContext) 
-        : null;
-
-      if (!WebAudioContext) return;
-      
-      const audioCtx = new WebAudioContext();
-      audioContextRef.current = audioCtx;
-
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
-      analyserRef.current = analyser;
-
-      const source = audioCtx.createMediaElementSource(audioRef.current);
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      sourceRef.current = source;
-
-      isInitialized.current = true;
-    } catch (err) {
-      console.error("Gagal inisialisasi Audio Engine:", err);
-    }
-  }, []);
-
+  // AKSI UTAMA SAAT KLIK TOMBOL PLAY
   const startPlayback = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
     try {
-      const audio = audioRef.current;
-      
+      // 1. Inisialisasi Audio Context jika belum
+      if (!isInitialized.current) {
+        initAudio();
+      }
+
       if (audioContextRef.current && audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
       }
 
-      // 🌟 FIX UTAMA: Panggilan internal start-play sekarang aman karena divalidasi JSON oleh fungsi di atas
-      const freshData = await fetchCurrentRadioStatusFromBackend();
+      // Kunci flag agar sinkronisasi latar belakang tahu bahwa ini aksi resmi dari user
       userStoppedRef.current = false;
-      setIsPlaying(true);
+      isAutoSwitchingRef.current = true;
       setHasError(false);
 
-      if (audio) {
-        if (!audio.src || audio.src === "" || audio.src === window.location.href || (freshData && freshData.audio_url && audio.src !== freshData.audio_url)) {
-          if (freshData && freshData.audio_url) {
-            lastSyncedUrlRef.current = freshData.audio_url;
-            audio.src = freshData.audio_url;
-            audio.load();
-          }
+      // 2. Ambil data aktual real-time dari backend sebelum beneran di-play
+      const freshData = await fetchCurrentRadioStatusFromBackend();
+      
+      if (freshData && freshData.active && freshData.audio_url) {
+        const targetUrl = freshData.audio_url;
+
+        if (!audio.src || audio.src === "" || audio.src === window.location.href || lastSyncedUrlRef.current !== targetUrl) {
+          lastSyncedUrlRef.current = targetUrl;
+          audio.src = targetUrl;
+          audio.load();
         }
 
-        if (freshData && freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
+        if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
           audio.currentTime = freshData.elapsed_seconds;
         } else {
           audio.currentTime = 0;
         }
-
-        await audio.play();
       }
+
+      // 3. Eksekusi Play biner audio HTML5
+      await audio.play();
+      setIsPlaying(true);
+      isAutoSwitchingRef.current = false;
     } catch (e) {
-      console.error("Playback gagal:", e);
+      console.error("Playback gagal dieksekusi:", e);
       setHasError(true);
       setIsPlaying(false);
+      userStoppedRef.current = true;
+      isAutoSwitchingRef.current = false;
     }
-  }, []);
+  }, [initAudio]);
 
   const togglePlay = useCallback(async () => {
-    if (!audioRef.current) return;
-
-    if (!isInitialized.current) {
-      initAudio();
-    }
-
     if (isPlaying) {
       stopMp3Playback();
     } else {
       await startPlayback();
     }
-  }, [initAudio, isPlaying, stopMp3Playback, startPlayback]);
+  }, [isPlaying, stopMp3Playback, startPlayback]);
 
   const toggleLivePlayback = useCallback(() => {
     if (isYouTubeLive && youtubeToggleRef.current) {
@@ -461,6 +476,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         crossOrigin="anonymous"
         preload="none"
         onPause={() => {
+          // 🌟 PERBAIKAN SAKTI: Jika dipause karena transisi otomatis lagu, UI dilarang mati!
           if (!isAutoSwitchingRef.current && userStoppedRef.current) {
             setIsPlaying(false);
           }
