@@ -258,8 +258,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = audioUrl;
           audio.load();
 
-          // Hanya set currentTime jika resource berdurasi statis (bukan stream tak terbatas / Infinity)
-          if (elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity) {
+          // 🌟 FIX ANTI-SENDAT: Hanya set currentTime jika biner merupakan berkas statis lokal (bukan live stream php)
+          if (elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity && !audioUrl.includes("stream.php")) {
             audio.currentTime = elapsedSeconds;
           }
 
@@ -305,7 +305,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // 🌟 PERBAIKAN SAKTI: Jalur Play Instan Tanpa Delay API (Anti Lempar Klik Ganda)
+  // AKSI UTAMA SAAT KLIK TOMBOL PLAY (MURNI ELEMENT-BASED SAKTI)
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -323,10 +323,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         if (!audio.src || audio.src === "" || audio.src === window.location.href || lastSyncedUrlRef.current !== targetUrl) {
           lastSyncedUrlRef.current = targetUrl;
           audio.src = targetUrl;
-          audio.load();
         }
+        
+        // 🌟 KUNCI UTAMA ANTI-SINKRONISASI RUSAK: Paksa browser melakukan handshake ulang secara bersih
+        audio.load();
 
-        if (metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+        // 🌟 FIX LIVE STREAM: Jangan paksa set currentTime jika target mengarah ke endpoint live proxy stream.php
+        if (metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity && !targetUrl.includes("stream.php")) {
           audio.currentTime = metadata.elapsed_seconds;
         }
       } else {
@@ -338,7 +341,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = fallbackUrl;
           audio.load();
 
-          if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+          if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity && !fallbackUrl.includes("stream.php")) {
             audio.currentTime = freshData.elapsed_seconds;
           }
         }
@@ -364,7 +367,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       userStoppedRef.current = true;
       isAutoSwitchingRef.current = false;
     }
-  }, [metadata.audio_url, metadata.elapsed_seconds]); // Masukkan state metadata ke dependency array
+  }, [metadata.audio_url, metadata.elapsed_seconds]);
 
   const togglePlay = useCallback(async () => {
     if (isPlaying) {
