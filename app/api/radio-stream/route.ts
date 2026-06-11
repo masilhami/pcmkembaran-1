@@ -5,7 +5,7 @@ import { client } from "@/lib/sanity.client";
 export const dynamic = "force-dynamic";
 
 const ADZAN_URL = "/audio/adzan.mp3";
-const ADZAN_DURATION = 300; // 5 Menit
+const ADZAN_DURATION = 300; // 5 Menit otomatis memotong jadwal radio
 
 // Jalur murni domain tempat Radio PHP kamu berada dan terbukti lancar tanpa putus
 const LIVE_PHP_SERVER = "https://www.pcmkembaran.com"; 
@@ -62,20 +62,31 @@ export async function GET(request: NextRequest) {
   const currentHours = Number(timeParts.find(p => p.type === "hour")?.value || 0);
   const currentMinutes = Number(timeParts.find(p => p.type === "minute")?.value || 0);
   const currentSecs = Number(timeParts.find(p => p.type === "second")?.value || 0);
-  const currentTotalMinutes = currentHours * 60 + currentMinutes;
+  
+  // 🌟 PERBAIKAN SAKTI 1: Hitung total detik hari ini secara presisi untuk mencocokkan transisi adzan
+  const totalDetikSekarang = (currentHours * 3600) + (currentMinutes * 60) + currentSecs;
 
-  // 1. CEK JADWAL ADZAN
+  // =========================================================================
+  // 1. CEK INTERUPSI JADWAL ADZAN OTOMATIS (SINKRONISASI DETIK JALUR NYATA)
+  // =========================================================================
   try {
     const jadwalSholat = await getAdzanMinutesToday();
     const namaWaktuSholat = Object.keys(jadwalSholat).find(key => {
       const waktuSholatMenit = jadwalSholat[key];
-      const selisihDetik = ((currentTotalMinutes - waktuSholatMenit) * 60) + currentSecs;
-      return selisihDetik >= 0 && selisihDetik < ADZAN_DURATION;
+      const totalDetikSholat = waktuSholatMenit * 60; // Konversi jadwal sholat ke detik murni
+      
+      const selisihDetikMurni = totalDetikSekarang - totalDetikSholat;
+      return selisihDetikMurni >= 0 && selisihDetikMurni < ADZAN_DURATION;
     });
 
     if (namaWaktuSholat) {
       const waktuSholatMenit = jadwalSholat[namaWaktuSholat];
-      const elapsedAdzanSeconds = ((currentTotalMinutes - waktuSholatMenit) * 60) + currentSecs;
+      const totalDetikSholat = waktuSholatMenit * 60;
+      const elapsedAdzanSeconds = totalDetikSekarang - totalDetikSholat;
+
+      // 🚀 PERBAIKAN SAKTI 2: Bypass adzan lokal ke sirkuit stream.php milik server PHP utama.
+      // Ini mencegah browser HTML5 mengalami crash buffer akibat melompat ke file statis lokal Next.js.
+      const BYPASS_ADZAN_URL = `${LIVE_PHP_SERVER}/radio/stream.php?mode=adzan&stream_url=${encodeURIComponent(ADZAN_URL)}&current_seconds=${elapsedAdzanSeconds}`;
 
       return NextResponse.json({
         active: true,
@@ -85,15 +96,22 @@ export async function GET(request: NextRequest) {
         title: `Panggilan Adzan - Waktu ${namaWaktuSholat.toUpperCase()}`,
         artist: "Radio Suara Al Muttaqin",
         program_title: "Adzan Otomatis Wilayah Purwokerto",
-        audio_url: ADZAN_URL, // Adzan lokal tetap panggil file lokal mp3
-        elapsed_seconds: elapsedAdzanSeconds > 10 ? 0 : elapsedAdzanSeconds,
+        audio_url: BYPASS_ADZAN_URL, 
+        elapsed_seconds: elapsedAdzanSeconds,
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate"
+        }
       });
     }
   } catch (e) {
-    console.error(e);
+    console.error("Gagal memproses interupsi adzan:", e);
   }
 
+  // =========================================================================
   // 2. PARSING JADWAL SANITY CMS
+  // =========================================================================
   try {
     const sanityQuery = `
       *[_type == "radioConfig"][0] {
@@ -130,6 +148,7 @@ export async function GET(request: NextRequest) {
       for (const schedule of config.schedules) {
         const start = timeToMinutes(schedule.startTime);
         const end = timeToMinutes(schedule.endTime);
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
         const isTimeMatch = currentTotalMinutes >= start && currentTotalMinutes < end;
         const isDayMatch = schedule.day === "everyday" || schedule.day === currentDayName;
 
@@ -142,7 +161,7 @@ export async function GET(request: NextRequest) {
       if (activeSchedule) {
         currentType = activeSchedule.broadcastMode || "playlist_mp3";
         const startMinutes = timeToMinutes(activeSchedule.startTime);
-        secondsSinceStarted = ((currentTotalMinutes - startMinutes) * 60) + currentSecs;
+        secondsSinceStarted = ((currentHours * 60 + currentMinutes - startMinutes) * 60) + currentSecs;
         title = activeSchedule.eventName || "Live Streaming Radio";
         artist = activeSchedule.speaker || "PCM Kembaran";
 
@@ -158,6 +177,11 @@ export async function GET(request: NextRequest) {
             program_title: stationName,
             audio_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : "",
             elapsed_seconds: 0
+          }, {
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate"
+            }
           });
         }
 
@@ -187,10 +211,12 @@ export async function GET(request: NextRequest) {
       }
     }
   } catch (sanityError) {
-    console.error(sanityError);
+    console.error("Gagal membaca Sanity CMS:", sanityError);
   }
 
-  // 3. JALUR CADANGAN JIKA TARGET URL KOSONG (PRISMA / FIILER LOKAL PLAYLIST)
+  // =========================================================================
+  // 3. JALUR CADANGAN JIKA TARGET URL KOSONG (PRISMA DB FALLBACK)
+  // =========================================================================
   if (!targetAudioUrl) {
     try {
       const currentTrack = await prisma.radioStream.findFirst({ orderBy: { start_time: "desc" } });
@@ -208,12 +234,11 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (dbError) {
-       console.error(dbError);
+       console.error("Gagal membaca database Prisma:", dbError);
     }
   }
 
-  // 🌟 BYPASS UTAMA: Rumuskan URL langsung mengarah ke `pcmkembaran.com` yang super lancar!
-  // Tag <audio> di browser Next.js akan mengambil biner dari link ini secara langsung tanpa perantara proxy Next.js.
+  // 🌟 BYPASS UTAMA: Kirim URL terpadu langsung menembak server core stream PHP Hawkhost
   const BYPASS_DIRECT_URL = `${LIVE_PHP_SERVER}/radio/stream.php?mode=${currentType}&stream_url=${encodeURIComponent(targetAudioUrl)}&current_seconds=${secondsSinceStarted}`;
 
   return NextResponse.json({
@@ -224,7 +249,7 @@ export async function GET(request: NextRequest) {
     title: title,
     artist: artist,
     program_title: programTitle,
-    audio_url: BYPASS_DIRECT_URL, // 🚀 Dikirim langsung sebagai target putar browser
+    audio_url: BYPASS_DIRECT_URL, 
     elapsed_seconds: secondsSinceStarted
   }, {
     headers: {
