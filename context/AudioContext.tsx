@@ -250,18 +250,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
 
-        // 🌟 PERBAIKAN SAKTI: Deteksi jika target mengarah ke bypass pipa biner stream.php core utama
+        // 🌟 PERBAIKAN EMAS 1: Pisahkan query string agar penambahan detik tidak dianggap URL baru
+        const cleanTargetUrl = audioUrl.split("?")[0];
+        const cleanCurrentUrl = lastSyncedUrlRef.current.split("?")[0];
+
         const isLiveStreamPipe = audioUrl.includes("stream.php") || audioUrl.includes("pcmkembaran.com");
 
-        // JIKA LINK SUARA BERBEDA (Ada pergantian jenis/jadwal lagu fundamental)
-        if (lastSyncedUrlRef.current !== audioUrl) {
+        // 🌟 PERBAIKAN EMAS 2: Hanya ganti src JIKA file inti siaran atau stream.php berganti mode mendasar
+        if (cleanCurrentUrl !== cleanTargetUrl) {
           lastSyncedUrlRef.current = audioUrl;
           
           isAutoSwitchingRef.current = true; 
           audio.src = audioUrl;
           audio.load();
 
-          // 🌟 FIX ANTI-SENDAT: Jangan lakukan manual seeking frontend jika audio merupakan live stream pipa biner
+          // Hanya lakukan seeking manual frontend jika BUKAN live stream biner PHP
           if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity) {
             audio.currentTime = elapsedSeconds;
           }
@@ -279,6 +282,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           } else {
             isAutoSwitchingRef.current = false;
           }
+        } else {
+          // 🌟 PERBAIKAN EMAS 3: Jika file/pipa intinya sama, biarkan audio mengalir lancar jaya!
+          // Jangan panggil audio.load() agar stream biner tidak terputus secara periodik.
+          lastSyncedUrlRef.current = audioUrl;
         }
       };
 
@@ -308,7 +315,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // AKSI UTAMA SAAT KLIK TOMBOL PLAY (MURNI ELEMENT-BASED SAKTI)
+  // AKSI UTAMA SAAT KLIK TOMBOL PLAY
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -330,7 +337,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
 
-        // Amankan agar tidak memicu crash buffer pada pipa stream radio PHP
         if (!isLiveStreamPipe && metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
           audio.currentTime = metadata.elapsed_seconds;
         }
