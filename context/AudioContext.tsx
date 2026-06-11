@@ -203,34 +203,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [JINGLE_FILE, metadata.title]);
 
-  // Inisialisasi Audio Engine Web Audio API secara aman
+  // Inisialisasi Audio Engine Web Audio API di-bypass sementara demi meloloskan CORS biner stream
   const initAudio = useCallback(() => {
     if (isInitialized.current || !audioRef.current) return;
-
-    try {
-      const WebAudioContext = typeof window !== "undefined" 
-        ? (window.AudioContext || (window as any).webkitAudioContext) 
-        : null;
-
-      if (!WebAudioContext) return;
-      
-      const audioCtx = new WebAudioContext();
-      audioContextRef.current = audioCtx;
-
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
-      analyserRef.current = analyser;
-
-      const source = audioCtx.createMediaElementSource(audioRef.current);
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      sourceRef.current = source;
-
-      isInitialized.current = true;
-    } catch (err) {
-      console.error("Gagal inisialisasi Audio Engine:", err);
-    }
+    isInitialized.current = true;
   }, []);
 
   const fetchMetadata = useCallback(async () => {
@@ -278,17 +254,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         if (lastSyncedUrlRef.current !== audioUrl) {
           lastSyncedUrlRef.current = audioUrl;
           
-          // Nyalakan bendera auto-switching agar event onPause native tidak merusak state UI tombol
           isAutoSwitchingRef.current = true; 
-          
           audio.src = audioUrl;
           audio.load();
 
-          if (elapsedSeconds && elapsedSeconds > 0) {
+          // Hanya set currentTime jika resource berdurasi statis (bukan stream tak terbatas / Infinity)
+          if (elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity) {
             audio.currentTime = elapsedSeconds;
           }
 
-          // Jika user sedang mendengarkan, langsung paksa putar lagu baru hasil sinkronisasi
           if (isPlayingRef.current && !userStoppedRef.current) {
             audio.play()
               .then(() => { 
@@ -301,11 +275,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
               });
           } else {
             isAutoSwitchingRef.current = false;
-          }
-        } else {
-          // JIKA LINK SAMA: Cukup samakan durasi detik agar sinkron dengan user lain jika selisih > 4 detik
-          if (isPlayingRef.current && elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 4) {
-            audio.currentTime = elapsedSeconds;
           }
         }
       };
@@ -336,27 +305,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // AKSI UTAMA SAAT KLIK TOMBOL PLAY
+  // AKSI UTAMA SAAT KLIK TOMBOL PLAY (MURNI ELEMENT-BASED SAKTI)
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
     try {
-      // 1. Inisialisasi Audio Context jika belum
-      if (!isInitialized.current) {
-        initAudio();
-      }
-
-      if (audioContextRef.current && audioContextRef.current.state === "suspended") {
-        await audioContextRef.current.resume();
-      }
-
-      // Kunci flag agar sinkronisasi latar belakang tahu bahwa ini aksi resmi dari user
       userStoppedRef.current = false;
       isAutoSwitchingRef.current = true;
       setHasError(false);
 
-      // 2. Ambil data aktual real-time dari backend sebelum beneran di-play
+      // Ambil data terbaru dari backend
       const freshData = await fetchCurrentRadioStatusFromBackend();
       
       if (freshData && freshData.active && freshData.audio_url) {
@@ -365,28 +324,31 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         if (!audio.src || audio.src === "" || audio.src === window.location.href || lastSyncedUrlRef.current !== targetUrl) {
           lastSyncedUrlRef.current = targetUrl;
           audio.src = targetUrl;
-          audio.load();
         }
+        
+        audio.load();
 
-        if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
+        if (freshData.elapsed_seconds && freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
           audio.currentTime = freshData.elapsed_seconds;
-        } else {
-          audio.currentTime = 0;
         }
       }
 
-      // 3. Eksekusi Play biner audio HTML5
-      await audio.play();
+      // Jalankan play murni HTML5 element tanpa tersumbat node web audio api
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
+
       setIsPlaying(true);
       isAutoSwitchingRef.current = false;
     } catch (e) {
-      console.error("Playback gagal dieksekusi:", e);
+      console.error("Playback ditolak oleh kebijakan browser:", e);
       setHasError(true);
       setIsPlaying(false);
       userStoppedRef.current = true;
       isAutoSwitchingRef.current = false;
     }
-  }, [initAudio]);
+  }, []);
 
   const togglePlay = useCallback(async () => {
     if (isPlaying) {
@@ -471,12 +433,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         youtubeThumbnail,
       }}
     >
+      {/* 🌟 FIX UTAMA: crossOrigin DIBUANG agar bypass total blokade CORS streaming biner */}
       <audio
         ref={audioRef}
-        crossOrigin="anonymous"
         preload="none"
         onPause={() => {
-          // 🌟 PERBAIKAN SAKTI: Jika dipause karena transisi otomatis lagu, UI dilarang mati!
           if (!isAutoSwitchingRef.current && userStoppedRef.current) {
             setIsPlaying(false);
           }
