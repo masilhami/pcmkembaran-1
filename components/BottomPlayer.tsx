@@ -42,9 +42,13 @@ export default function BottomPlayer() {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
           whileTap={{ scale: 0.92 }}
-          onClick={() => {
-            // FIX LOGIKA SAKLAR: Cek apa yang AKTIF berputar saat ini agar eksekusi satu nyawa sinkron
-            if (isYouTubePlaying) {
+          onClick={(e) => {
+            // 🟢 PERBAIKAN SAKLAR SINKRON: Kunci event bubble jemaah agar interaksi langsung
+            // mengeksekusi context tanpa memicu native reload/malfungsi state di browser.
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (isYouTubeLive) {
               toggleYouTubeAudio()
             } else {
               toggleLivePlayback()
@@ -58,6 +62,7 @@ export default function BottomPlayer() {
             shadow-[0_0_30px_rgba(239,68,68,0.5)]
             border border-red-400/20
             transition-all duration-300
+            cursor-pointer outline-none focus:outline-none
           "
         >
           {/* Ikon Stop Kotak Putih */}
@@ -67,7 +72,7 @@ export default function BottomPlayer() {
           <span className="absolute inset-0 rounded-full animate-ping bg-red-500/30 pointer-events-none" />
           
           {/* Tulisan kecil ON AIR melayang di atas tombol biar makin informatif */}
-          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-red-600 text-[9px] font-bold tracking-widest text-white px-1.5 py-0.5 rounded shadow-md uppercase">
+          <span className="absolute -top-6 left-1/2 -translate-x-1/2 bg-red-600 text-[9px] font-bold tracking-widest text-white px-1.5 py-0.5 rounded shadow-md uppercase select-none">
             LIVE
           </span>
         </motion.button>
@@ -119,8 +124,11 @@ export default function BottomPlayer() {
         <motion.button
           key="play-btn"
           whileTap={{ scale: 0.92 }}
-          onClick={() => {
-            // FIX LOGIKA SAKLAR: Mengikuti jenis mode pancaran jadwal aktif dari CMS agar tidak double sound
+          onClick={(e) => {
+            // 🟢 KUNCI SINKRONISASI: Amankan event bubble jemaah di area card play bawah
+            e.preventDefault();
+            e.stopPropagation();
+
             if (isYouTubeLive) {
               toggleYouTubeAudio()
             } else {
@@ -132,6 +140,7 @@ export default function BottomPlayer() {
             flex items-center justify-center 
             transition-all duration-300 
             bg-slate-700 hover:bg-slate-600
+            cursor-pointer outline-none focus:outline-none
           "
         >
           <Play size={18} className="text-white ml-1" fill="white" />

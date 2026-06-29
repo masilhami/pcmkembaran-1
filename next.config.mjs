@@ -14,6 +14,21 @@ const nextConfig = {
   // Solusi untuk error Turbopack & Call retries exceeded
   turbopack: {}, 
   
+  /* =========================================================================
+      🛡️ BENTENG DEFLEKSI ABSOLUT: DIRECT REDIRECT (ANTI-BONCOS BANDWIDTH VERCEL)
+     ========================================================================= */
+  async redirects() {
+    return [
+      {
+        source: "/radio/stream.php",
+        // 🟢 MENGUSIR REQUEST BINER AUDIO LANGSUNG KE BACKEND HAWKHOST RADIO BERKEMAJUAN!
+        // Ganti 'https://domain-laravel-berkemajuan-antum.com' dengan domain Laravel milik Radio Berkemajuan.
+        destination: "https://sdit.my.id/radio/stream.php",
+        permanent: true, // Status 308 (Permanent Redirect) agar Radio Garden & browser langsung belok tanpa gedor Vercel
+      },
+    ];
+  },
+
   images: {
     remotePatterns: [
       {

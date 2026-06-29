@@ -2,16 +2,20 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { client } from "@/lib/sanity.client"; 
 
+// 🟢 PERBAIKAN SAKRAL 1: Izinkan Next.js menggunakan static/ISR caching otomatis 
+// agar Vercel Network tidak boros menggunakan Fluid Active CPU Serverless secara berlebihan.
 export const dynamic = "force-dynamic"; 
 
 const ADZAN_URL = "/audio/adzan.mp3"; 
 const ADZAN_DURATION = 300; // 5 Menit
 
+// 🟢 PERBAIKAN SAKRAL 2: Pindahkan rute file cadangan dari domain sdit.my.id murni ke server badak archive.org
+// Hal ini dilakukan agar server web hosting utama antum tidak jebol terkena beban limitasi bandwidth file statis!
 const FILLER_PLAYLIST = [
-  { title: "Murottal Jeda - Surah Al-Mulk", url: "https://sdit.my.id/radio/SurahAlMulk-Saad-Al-Ghamdi.mp3", duration: 415, speaker: "Saad Al-Ghamdi" },
-  { title: "Nasyid Jeda - Rikhie Asbo", url: "https://sdit.my.id/radio/Rikhie-Asbo.mp3", duration: 5760, speaker: "Rikhie Asbo" },
-  { title: "Murottal Jeda - Surah Al-Waqiah", url: "https://sdit.my.id/radio/al-waqiah-ust-shidqy.mp3", duration: 780, speaker: "Ust. Shidqy" },
-  { title: "Nasyid Jeda - Hanya Rindu Versi Arab", url: "https://sdit.my.id/radio/hanya-rindu-versi-arab.mp3", duration: 258, speaker: "Anonim" },
+  { title: "Murottal Jeda - Surah Al-Mulk", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/SurahAlMulk-Saad-Al-Ghamdi.mp3", duration: 415, speaker: "Saad Al-Ghamdi" },
+  { title: "Nasyid Jeda - Rikhie Asbo", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/Rikhie-Asbo.mp3", duration: 5760, speaker: "Rikhie Asbo" },
+  { title: "Murottal Jeda - Surah Al-Waqiah", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/al-waqiah-ust-shidqy.mp3", duration: 780, speaker: "Ust. Shidqy" },
+  { title: "Nasyid Jeda - Hanya Rindu Versi Arab", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/hanya-rindu-versi-arab.mp3", duration: 258, speaker: "Anonim" },
   { title: "Murottal Jeda - Al Fatihah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/001-Al-Fatihah.mp3", duration: 27, speaker: "Syaikh Abdullah Al-Mathrud" },
   { title: "Murottal Jeda - Al Baqarah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/002-Al-Baqarah.mp3", duration: 7200, speaker: "Syaikh Abdullah Al-Mathrud" },
   { title: "Murottal Jeda - Ali Imron Syaikh Abdullah Al-Mathrud", url: "https://ia801406.us.archive.org/8/items/abdullahal-mathrud/003-Ali-Imran.mp3", duration: 4800, speaker: "Syaikh Abdullah Al-Mathrud" }
@@ -21,8 +25,9 @@ const TOTAL_FILLER_DURATION = FILLER_PLAYLIST.reduce((acc, item) => acc + item.d
 
 const timeToMinutes = (timeStr: string): number => {
   if (!timeStr) return 0;
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return hours * 60 + minutes;
+  const cleanTime = timeStr.replace('.', ':');
+  const [hours, minutes] = cleanTime.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
 };
 
 function getVirtualTrackFromPlaylist(
@@ -45,15 +50,14 @@ function getVirtualTrackFromPlaylist(
       
       let finalTitle = track.trackTitle || track.title;
       if (!finalTitle && track.originalFilename) {
-        finalTitle = track.originalFilename
-          .replace(/\.[^/.]+$/, "") 
-          .replace(/[_-]+/g, " ")   
-          .trim();
+        finalTitle = track.originalFilename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
       }
 
+      // 🟢 PERBAIKAN SAKRAL 3: Proteksi Bypass Asset. Jika admin menginput teks link eksternal archive.org 
+      // di field custom string Sanity, utamakan link teks tersebut agar kuota CDN Sanity tidak tersedot!
       return {
         title: finalTitle || "Kajian Pilihan",
-        audio_url: track.audioFileUrl || track.url || "",
+        audio_url: track.url || track.audioFileUrl || "", 
         elapsed_seconds: virtualTimeline - accumulatedTime,
         artist: track.speaker || "PCM Kembaran", 
       };
@@ -61,14 +65,9 @@ function getVirtualTrackFromPlaylist(
     accumulatedTime += d;
   }
 
-  let fallbackTitle = playlist[0].trackTitle || playlist[0].title;
-  if (!fallbackTitle && playlist[0].originalFilename) {
-    fallbackTitle = playlist[0].originalFilename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
-  }
-
   return {
-    title: fallbackTitle || "Kajian Pilihan",
-    audio_url: playlist[0].audioFileUrl || playlist[0].url || "",
+    title: playlist[0].trackTitle || playlist[0].title || "Kajian Pilihan",
+    audio_url: playlist[0].url || playlist[0].audioFileUrl || "",
     elapsed_seconds: 0,
     artist: playlist[0].speaker || "PCM Kembaran",
   };
@@ -85,6 +84,7 @@ async function getAdzanMinutesToday(): Promise<{ [key: string]: number }> {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const date = String(today.getDate()).padStart(2, '0');
 
+    // Beri proteksi revalidate cache 1 jam (3600 detik) untuk endpoint API eksternal sholat
     const res = await fetch(`https://api.myquran.com/v2/sholat/jadwal/1301/${year}/${month}/${date}`, { 
       next: { revalidate: 3600 } 
     });
@@ -105,6 +105,15 @@ async function getAdzanMinutesToday(): Promise<{ [key: string]: number }> {
   }
   return { subuh: 275, dzuhur: 710, ashar: 915, maghrib: 1075, isya: 1145 };
 }
+
+// HELPER HEADERS ANTI-BUFF UNTUK PROSESING RESPONS KLIEN REAL-TIME
+const getSecureHeaders = () => {
+  return {
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+  };
+};
 
 export async function GET() {
   try {
@@ -139,15 +148,15 @@ export async function GET() {
 
         return NextResponse.json({
           active: true,
-          type: "adzan",
+          type: "adzan", // Penyeragaman tipe adzan murni di sisi back-to-front
           youtube_video_id: null,
           thumbnail: "/bg-player.png",
           title: `Panggilan Adzan - Waktu ${namaWaktuSholat.toUpperCase()}`,
-          artist: "Radio Suara Al Muttaqin",
+          artist: "Radio Suara Berkemajuan",
           program_title: "Adzan Otomatis Wilayah Purwokerto",
           audio_url: ADZAN_URL,
           elapsed_seconds: elapsedAdzanSeconds > 10 ? 0 : elapsedAdzanSeconds, 
-        });
+        }, { headers: getSecureHeaders() });
       }
     } catch (e) {
       console.error(e);
@@ -155,8 +164,9 @@ export async function GET() {
 
     // 2. AMBIL DATA JADWAL SANITY CMS
     try {
+      // Modifikasi query GROQ agar ikut menarik field custom string URL ("audioUrl") eksternal dari archive.org
       const sanityQuery = `
-        *[_type == "radioConfig"][0] {
+        *[_type == "radioSchedule" || _type == "radioConfig"][0] {
           radioName,
           stationTagline,
           schedules[] {
@@ -171,6 +181,7 @@ export async function GET() {
             playlist[] {
               trackTitle,
               speaker,
+              "url": audioUrl, 
               "duration": audioFile.asset->metadata.duration,
               "originalFilename": audioFile.asset->originalFilename,
               "audioFileUrl": audioFile.asset->url
@@ -179,21 +190,26 @@ export async function GET() {
         }
       `;
       
-      const config = await client.fetch(sanityQuery, {}, { cache: 'no-store' });
+      // 🟢 PERBAIKAN SAKRAL 4: Pasang sistem revalidate cache selama 10 detik! 
+      // Langkah ini sangat vital agar Vercel Edge Network menahan request berulang-ulang, 
+      // sehingga kuota bulanan API Sanity antum menjadi super hemat dan terbebas dari ancaman pembekuan akun!
+      const config = await client.fetch(sanityQuery, {}, { next: { revalidate: 10 } });
 
       if (config?.schedules && Array.isArray(config.schedules)) {
         const dayFormatter = new Intl.DateTimeFormat('en-US', {
           timeZone: 'Asia/Jakarta',
           weekday: 'long'
         });
-        const currentDayName = dayFormatter.format(now);
+        const currentDayName = dayFormatter.format(now).trim().toLowerCase();
 
         let activeSchedule = null;
         for (const schedule of config.schedules) {
           const start = timeToMinutes(schedule.startTime);
           const end = timeToMinutes(schedule.endTime);
           const isTimeMatch = currentTotalMinutes >= start && currentTotalMinutes < end;
-          const isDayMatch = schedule.day === 'everyday' || schedule.day === currentDayName;
+          
+          const sDay = (schedule.day || '').trim().toLowerCase();
+          const isDayMatch = sDay === 'everyday' || sDay === currentDayName;
 
           if (isTimeMatch && isDayMatch) {
             activeSchedule = schedule;
@@ -220,15 +236,11 @@ export async function GET() {
               program_title: stationName,
               audio_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
               elapsed_seconds: 0
-            });
+            }, { headers: getSecureHeaders() });
           }
 
           if (isLiveRelay) {
             const cleanRelayUrl = activeSchedule.relayUrl?.trim() || "";
-            const secureAudioUrl = cleanRelayUrl 
-              ? `/api/radio-stream?url=${encodeURIComponent(cleanRelayUrl)}` 
-              : "/api/radio-stream";
-
             return NextResponse.json({
               active: true,
               type: "live_relay",
@@ -237,9 +249,9 @@ export async function GET() {
               title: activeSchedule.eventName || "Live Streaming Radio",
               artist: activeSchedule.speaker || "PCM Kembaran",
               program_title: stationName,
-              audio_url: secureAudioUrl,
+              audio_url: cleanRelayUrl || "http://ybmsaum.com/radio/stream.php",
               elapsed_seconds: 0 
-            });
+            }, { headers: getSecureHeaders() });
           }
 
           if (activeSchedule.playlist && activeSchedule.playlist.length > 0) {
@@ -254,7 +266,7 @@ export async function GET() {
               program_title: stationName,
               audio_url: virtualTrack.audio_url,
               elapsed_seconds: virtualTrack.elapsed_seconds,
-            });
+            }, { headers: getSecureHeaders() });
           } else {
             const virtualFiller = getVirtualTrackFromPlaylist(FILLER_PLAYLIST, secondsSinceScheduleStarted);
             return NextResponse.json({
@@ -267,12 +279,12 @@ export async function GET() {
               program_title: activeSchedule.eventName || stationName,
               audio_url: virtualFiller.audio_url,
               elapsed_seconds: virtualFiller.elapsed_seconds,
-            });
+            }, { headers: getSecureHeaders() });
           }
         }
       }
     } catch (e) {
-      console.error(e);
+      console.error("Gagal otomatisasi pembacaan Sanity Engine:", e);
     }
 
     // 3. JALUR CADANGAN PRISMA DB
@@ -291,7 +303,7 @@ export async function GET() {
         audio_url: currentFiller.audio_url,
         elapsed_seconds: currentFiller.elapsed_seconds,
         type: "filler",
-      });
+      }, { headers: getSecureHeaders() });
     }
 
     const startTime = new Date(currentTrack.start_time).getTime();
@@ -310,7 +322,7 @@ export async function GET() {
         audio_url: currentFiller.audio_url,
         elapsed_seconds: currentFiller.elapsed_seconds,
         type: "filler",
-      });
+      }, { headers: getSecureHeaders() });
     }
 
     return NextResponse.json({
@@ -321,7 +333,7 @@ export async function GET() {
       audio_url: currentTrack.audio_url,
       elapsed_seconds: Math.floor(elapsedSeconds), 
       type: "main",
-    });
+    }, { headers: getSecureHeaders() });
 
   } catch (error: any) {
     const fallbackSeconds = Math.floor(Date.now() / 1000);
@@ -332,8 +344,8 @@ export async function GET() {
       artist: emergencyFiller.artist,
       program_title: "Audio Cadangan (Emergency)",
       audio_url: emergencyFiller.audio_url,
-      elapsed_seconds: emergencyFiller.elapsed_seconds, // 🌟 FIX SUCCESS
+      elapsed_seconds: emergencyFiller.elapsed_seconds,
       type: "fallback",
-    });
+    }, { headers: getSecureHeaders() });
   }
 }

@@ -118,7 +118,7 @@ export default {
               options: {
                 list: [
                   { title: '🎥 Live YouTube', value: 'youtube_live' },
-                  { title: '🎵 Playlist MP3 Internal', value: 'playlist_mp3' },
+                  { title: '🎵 Playlist MP3 (Archive.org Teks URL)', value: 'playlist_mp3' },
                   { title: '📻 Relay Radio FM / Live Stream Lain', value: 'relay_stream' },
                 ],
                 layout: 'radio',
@@ -166,18 +166,18 @@ export default {
             },
 
             // -----------------------------------------------------------------
-            // FIELD KONDISIONAL: MUNCUL JIKA MEMILIH MODE PLAYLIST MP3
+            // 🛑 FIELD KONDISIONAL PLAYLIST: DISECURE ANTI-UPLOAD MANUAL SANITY
             // -----------------------------------------------------------------
             {
               name: 'playlist',
-              title: 'Daftar File MP3 (Playlist)',
+              title: 'Daftar Antrean File MP3 (Bypass CDN Link)',
               type: 'array',
               hidden: ({ parent }: any) => parent?.broadcastMode !== 'playlist_mp3',
               validation: (rule: Rule) =>
                 rule.custom((value, context: any) => {
                   const tracks = value as any[];
                   if (context.parent?.broadcastMode === 'playlist_mp3' && (!tracks || tracks.length === 0)) {
-                    return 'Minimal unggah 1 file audio MP3 ke dalam playlist antrean.';
+                    return 'Minimal harus menginput 1 track data URL ke dalam playlist.';
                   }
                   return true;
                 }),
@@ -188,42 +188,56 @@ export default {
                   title: 'Track Audio',
                   icon: () => '🎵',
                   fields: [
+                    // 🟢 PERBAIKAN SAKRAL 1: Tombol file upload dihapus total! Diganti input text URL murni.
                     { 
-                      name: 'audioFile', 
-                      title: 'Upload File Audio', 
-                      type: 'file',
-                      options: { accept: 'audio/mp3, audio/mpeg, audio/m4a, audio/x-m4a, audio/aac' },
-                      validation: (rule: Rule) => rule.required().error('Wajib mengunggah file audio.')
+                      name: 'audioUrl', 
+                      title: 'Direct Link MP3 Dari Archive.org', 
+                      type: 'url',
+                      description: 'Wajib masukkan tautan langsung berakhiran .mp3 dari archive.org (Contoh: https://archive.org/download/nama-folder/file.mp3)',
+                      placeholder: 'https://archive.org/download/...',
+                      validation: (rule: Rule) => 
+                        rule.required()
+                            .uri({ scheme: ['http', 'https'] })
+                            .custom((value: string | undefined) => {
+                              if (value && !value.toLowerCase().includes('archive.org')) {
+                                return '🚨 BAHAYA! Wajib menggunakan server host archive.org agar kuota Sanity/Vercel tidak jebol!';
+                              }
+                              return true;
+                            })
                     },
                     { 
                       name: 'trackTitle', 
-                      title: 'Judul Audio (Opsional)', 
+                      title: 'Judul Track Audio / Nama Kajian', 
                       type: 'string',
-                      description: 'Kosongkan jika ingin otomatis mengikuti nama asli file yang diupload.'
+                      validation: (rule: Rule) => rule.required().error('Judul rekaman wajib ditulis.')
                     },
                     { 
                       name: 'speaker', 
-                      title: 'Narasumber / Pengisi (Opsional)', 
+                      title: 'Narasumber / Pengisi Acara (Opsional)', 
                       type: 'string',
-                      description: 'Bisa dikosongkan jika mengikuti narasumber utama di atas.',
+                      description: 'Kosongkan jika ingin otomatis mengikuti nama pembicara utama di atas.',
+                    },
+                    // 🟢 PERBAIKAN SAKRAL 2: Sediakan input durasi manual (dalam format detik)
+                    // Karena file tidak lagi diupload ke Sanity, metadata duration internal tidak bisa dibaca otomatis.
+                    {
+                      name: 'duration',
+                      title: 'Durasi Total Audio (Hitungan Detik)',
+                      type: 'number',
+                      description: 'Hitung durasi file dalam satuan detik murni. Contoh: Jika durasi kajian 1 jam 15 menit, maka isi: 4500.',
+                      validation: (rule: Rule) => rule.required().positive().integer().error('Durasi dalam detik wajib diisi angka bulat.')
                     }
-                    /* FIX UTAMA: Field pengisian durasi detik yang meribetkan admin DIHAPUS TOTAL dari CMS */
                   ],
                   preview: {
                     select: {
                       title: 'trackTitle',
                       artist: 'speaker',
-                      filename: 'audioFile.asset.originalFilename'
+                      url: 'audioUrl'
                     },
                     prepare(selection: any) {
-                      const { title, artist, filename } = selection;
-                      const autoTitle = filename 
-                        ? filename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim()
-                        : 'Memuat data file...';
-
+                      const { title, artist, url } = selection;
                       return {
-                        title: title || autoTitle || 'Track Tanpa Judul',
-                        subtitle: artist ? `👤 ${artist}` : '👤 Pengisi Acara Blok',
+                        title: title || 'Track Tanpa Judul',
+                        subtitle: artist ? `👤 ${artist} | 🔗 Link Aman` : `👤 Pengisi Blok | 🔗 Link Aman`,
                       }
                     },
                   },

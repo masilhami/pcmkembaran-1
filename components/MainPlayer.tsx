@@ -83,16 +83,21 @@ export default function MainPlayer() {
           <motion.button
             key={isOnAir ? "stop" : "play"}
             whileTap={{ scale: 0.95 }}
-            onClick={() => {
+            onClick={(e) => {
+              // 🟢 PERBAIKAN LOGIKA MUTLAK: Amankan event bubble jemaah agar sinkronisasi context 
+              // langsung tereksekusi tanpa interupsi native reload browser.
+              e.preventDefault();
+              e.stopPropagation();
+
               if (isYouTubeLive) {
                 toggleYouTubeAudio()
               } else {
                 toggleLivePlayback()
               }
             }}
-            className={`h-14 w-14 md:h-16 md:w-16 rounded-full flex items-center justify-center transition-all duration-300 ${isOnAir ? 'bg-red-500' : 'bg-cyan-500'}`}
+            className={`h-14 w-14 md:h-16 md:w-16 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer outline-none focus:outline-none ${isOnAir ? 'bg-red-500 shadow-[0_0_25px_rgba(239,68,68,0.4)]' : 'bg-cyan-500 shadow-[0_0_25px_rgba(6,182,212,0.4)]'}`}
           >
-            {isOnAir ? <Square size={24} className="text-white" fill="white" /> : <Play size={24} className="text-white" fill="white" />}
+            {isOnAir ? <Square size={24} className="text-white" fill="white" /> : <Play size={24} className="text-white ml-1" fill="white" />}
           </motion.button>
         </div>
 

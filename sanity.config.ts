@@ -1,6 +1,7 @@
 import { defineConfig } from 'sanity'
 import { structureTool } from 'sanity/structure'
 import { dashboardTool } from '@sanity/dashboard' 
+import { visionTool } from '@sanity/vision' // Ditambahkan agar menu Vision aktif
 import { schema } from './sanity/schemaTypes' // Pastikan path ini sesuai dengan struktur folder Anda
 
 // Impor widget kustom
@@ -16,8 +17,8 @@ export default defineConfig({
   name: 'default',
   title: 'PCM Kembaran Studio',
 
-  // HARDCODED untuk membasmi error "Failed to extract manifest"
-  projectId: 'deyoeizv', 
+  // BERHASIL DIPERBAIKI: Menggunakan Project ID Baru Milik Pak Aris Suharyanto
+  projectId: 'k492syv1', 
   dataset: 'production',
   basePath: '/studio', 
 
@@ -83,7 +84,10 @@ export default defineConfig({
           layout: { width: 'full' }
         }
       ]
-    })
+    }),
+
+    // 3. AKTIVASI VISION TOOL (Untuk Query data masa depan agar tidak buntu lagi)
+    visionTool()
   ],
 
   schema: {

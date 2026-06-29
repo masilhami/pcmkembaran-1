@@ -20,6 +20,8 @@ interface AudioContextType {
     elapsed_seconds?: number | null;    
   };
   listeners: number;
+  volume: number;          // 🟢 DISURB KEMBALI AGAR SINKRON DENGAN SLIDER FRONTEND
+  setVolume: (vol: number) => void; // 🟢 FUNGSIONALITAS PENGENDALIAN VOLUME DI CONTEXT
   togglePlay: () => void;
   toggleLivePlayback: () => void;
   toggleYouTubeAudio: () => void;
@@ -36,31 +38,47 @@ interface AudioContextType {
 
 const AudioContext = createContext<AudioContextType | null>(null);
 
-// Mengambil status radio terbaru dari backend Next.js
+// 🟢 PERBAIKAN SAKRAL 1: SINKRONISASI TERPUSAT VIA EDGE NETWORK CACHE
+// Mengembalikan pembacaan data ke server router agar 1.000 jemaah mendengar suara yang sama di detik yang sama
 async function fetchCurrentRadioStatusFromBackend() {
   try {
-    const res = await fetch("/api/radio-stream?type=metadata", { cache: "no-store" });
-    if (!res.ok) {
-      console.warn("Radio API backend offline atau sedang sibuk.");
-      return { active: false };
-    }
+    const origin = typeof window !== "undefined" && window.location.origin 
+      ? window.location.origin 
+      : "https://radioalmuttaqin.com"; // Sesuaikan origin domain proyek produksi Anda, Fal
+    
+    const targetUrl = `${origin.replace(/\/$/, "")}/api/get-current-radio`;
 
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      console.error("⚠️ Bahaya: Endpoint malah mengembalikan file audio, bukan JSON data! Content-Type:", contentType);
-      return { active: false };
+    const res = await fetch(targetUrl, { 
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      }
+    });
+
+    const contentType = res.headers.get("content-type");
+    if (!res.ok || (contentType && contentType.includes("text/html"))) {
+      throw new Error("Endpoint mengembalikan HTML palsu");
     }
 
     return await res.json();
-  } catch (err) {
-    console.error("Koneksi internet tersendat, gagal sinkronisasi radio:", err);
-    return { active: false };
+  } catch (error) {
+    console.error("[Radio PCM API] Gagal total sinkronisasi terpusat, alihkan ke fallback:", error);
+    return {
+      active: true,
+      type: "playlist_mp3",
+      title: "Radio Suara Berkemajuan",
+      artist: "Dakwah Berkemajuan Mencerahkan Kehidupan",
+      audio_url: "http://ybmsaum.com/radio/stream.php", // Link fallback stream PHP badak Anda
+      thumbnail: "/bg-player.png",
+      elapsed_seconds: 0
+    };
   }
 }
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<any>(null); 
+  const audioContextRef = useRef<any>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const youtubeToggleRef = useRef<(() => void) | null>(null);
@@ -73,6 +91,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
   const isYouTubePlayingRef = useRef(false);
+
+  // 🟢 VOLUME MANAGEMENT (SINKRON SEUMUR HIDUP)
+  const [volume, _setVolume] = useState(0.8);
+  const volumeRef = useRef(0.8);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -101,11 +123,50 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const jingleIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isJinglePlayingRef = useRef(false);
 
-  // 🌟 SINKRONISASI JINGLE NYATA: Catat timestamp pemutaran agar konsisten 5-10 menit sekali
   const lastJingleTimeRef = useRef<number>(Date.now());
 
   const JINGLE_INTERVAL = 5 * 60 * 1000; 
   const JINGLE_FILE = "/audio/jingle-pcm.mp3";
+
+  // =================================================================
+  // ⚙️ ENGINE CORE INITIALIZER (WEB AUDIO API NODE PROTECTION)
+  // =================================================================
+  const initAudio = useCallback(() => {
+    if (isInitialized.current || !audioRef.current) return;
+    try {
+      const WebAudioContext = typeof window !== "undefined" 
+        ? (window.AudioContext || (window as any).webkitAudioContext) 
+        : null;
+
+      if (!WebAudioContext) return;
+      
+      const audioCtx = new WebAudioContext();
+      audioContextRef.current = audioCtx;
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaElementSource(audioRef.current);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      sourceRef.current = source;
+
+      isInitialized.current = true;
+    } catch (err) {
+      console.error("Gagal inisialisasi Audio Canvas Engine:", err);
+    }
+  }, []);
+
+  const setVolume = useCallback((vol: number) => {
+    const cleanVol = Math.max(0, Math.min(1, vol));
+    _setVolume(cleanVol);
+    volumeRef.current = cleanVol;
+    if (audioRef.current && !isJinglePlayingRef.current) {
+      audioRef.current.volume = cleanVol;
+    }
+  }, []);
 
   const stopMp3Playback = useCallback(() => {
     const audio = audioRef.current;
@@ -180,7 +241,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       jingleRef.current.onerror = () => {
-        if (audioRef.current) audioRef.current.volume = 1;
+        if (audioRef.current) audioRef.current.volume = volumeRef.current;
         isJinglePlayingRef.current = false;
       };
 
@@ -190,30 +251,25 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       jingleRef.current.play()
         .catch(playErr => {
           console.warn("Jingle blocked by browser autoplay:", playErr);
-          if (audioRef.current) audioRef.current.volume = 1;
+          if (audioRef.current) audioRef.current.volume = volumeRef.current;
           isJinglePlayingRef.current = false;
         });
 
       jingleRef.current.onended = () => {
         if (audioRef.current) {
-          audioRef.current.volume = 1;
+          audioRef.current.volume = volumeRef.current;
         }
         isJinglePlayingRef.current = false;
       };
     } catch (err) {
-      if (audioRef.current) audioRef.current.volume = 1;
+      if (audioRef.current) audioRef.current.volume = volumeRef.current;
       isJinglePlayingRef.current = false;
     }
   }, [JINGLE_FILE, metadata.title]);
 
-  // Inisialisasi Audio Engine Web Audio API di-bypass sementara demi meloloskan CORS biner stream
-  const initAudio = useCallback(() => {
-    if (isInitialized.current || !audioRef.current) return;
-    isInitialized.current = true;
-  }, []);
-
   const fetchMetadata = useCallback(async () => {
     try {
+      // 🟢 PERBAIKAN SAKRAL 2: Alihkan penarikan data ke API Router yang dilindungi Edge Caching
       const data = await fetchCurrentRadioStatusFromBackend();
       
       if (!data || !data.active) {
@@ -253,13 +309,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
 
-        // 🌟 PERBAIKAN EMAS 1: Pisahkan query string agar penambahan detik tidak dianggap URL baru
         const cleanTargetUrl = audioUrl.split("?")[0];
         const cleanCurrentUrl = lastSyncedUrlRef.current.split("?")[0];
 
         const isLiveStreamPipe = audioUrl.includes("stream.php") || audioUrl.includes("pcmkembaran.com");
 
-        // 🌟 PERBAIKAN EMAS 2: Hanya ganti src JIKA file inti siaran atau stream.php berganti mode mendasar
         if (cleanCurrentUrl !== cleanTargetUrl) {
           lastSyncedUrlRef.current = audioUrl;
           
@@ -267,12 +321,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = audioUrl;
           audio.load();
 
-          // Hanya lakukan seeking manual frontend jika BUKAN live stream biner PHP
           if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity) {
             audio.currentTime = elapsedSeconds;
           }
 
           if (isPlayingRef.current && !userStoppedRef.current) {
+            if (!isInitialized.current) initAudio();
+            audio.volume = volumeRef.current;
             audio.play()
               .then(() => { 
                 isAutoSwitchingRef.current = false; 
@@ -286,21 +341,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             isAutoSwitchingRef.current = false;
           }
         } else {
-          // 🌟 PERBAIKAN EMAS 3: Jika file/pipa intinya sama, biarkan audio mengalir lancar jaya!
-          // Jangan panggil audio.load() agar stream biner tidak terputus secara periodik.
+          // Sinkronisasi ulang lompatan detik secara teratur jika ada deviasi di atas 5 detik
+          if (!isLiveStreamPipe && elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 5) {
+            audio.currentTime = elapsedSeconds;
+          }
           lastSyncedUrlRef.current = audioUrl;
         }
       };
 
-      if (currentType === "adzan" || currentType === "live_relay" || currentType.includes("relay") || data.audio_url) {
+      if (currentType === "adzan" || currentType === "playlist_mp3" || currentType === "live_relay" || currentType.includes("relay") || data.audio_url) {
         setIsYouTubeLive(false);
         setYoutubeVideoId(null);
+        
         setMetadata({
           title: data.title || "Radio Suara Berkemajuan",
           artist: data.artist || "Dakwah Berkemajuan Mencerahkan Kehidupan",
           art: data.thumbnail || "/bg-player.png",
           audio_url: data.audio_url,
-          elapsed_seconds: data.elapsed_seconds 
+          elapsed_seconds: data.elapsed_seconds || 0 
         });
         handleAudioSourceSync(data.audio_url, data.elapsed_seconds);
         setListeners(1);
@@ -310,7 +368,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Gagal sinkronisasi data stream radio:", error);
     }
-  }, [resetMp3PlaybackCompletely]);
+  }, [resetMp3PlaybackCompletely, initAudio]);
 
   useEffect(() => {
     fetchMetadata();
@@ -318,7 +376,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // AKSI UTAMA SAAT KLIK TOMBOL PLAY
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -327,6 +384,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       userStoppedRef.current = false;
       isAutoSwitchingRef.current = true;
       setHasError(false);
+
+      if (!isInitialized.current) initAudio();
 
       const targetUrl = metadata.audio_url;
 
@@ -340,7 +399,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
 
-        if (!isLiveStreamPipe && metadata.elapsed_seconds && metadata.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+        if (!isLiveStreamPipe && metadata.elapsed_seconds && metadata.elapsed_seconds > 0) {
           audio.currentTime = metadata.elapsed_seconds;
         }
       } else {
@@ -353,10 +412,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
           const isLiveStreamPipe = fallbackUrl.includes("stream.php") || fallbackUrl.includes("pcmkembaran.com");
 
-          if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.freshData.elapsed_seconds > 0 && audio.duration && audio.duration !== Infinity) {
+          if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
             audio.currentTime = freshData.elapsed_seconds;
           }
         }
+      }
+
+      audio.volume = volumeRef.current;
+      if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
       }
 
       const playPromise = audio.play();
@@ -365,8 +429,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIsPlaying(true);
-      
-      // Sinkronkan ulang patokan waktu tunggu jingle sejak tombol play ditekan pertama kali
       lastJingleTimeRef.current = Date.now();
 
       setTimeout(() => {
@@ -374,13 +436,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }, 400);
 
     } catch (e) {
-      console.error("Playback gagal dieksekusi pada klik pertama:", e);
+      console.error("Playback gagal dieksekusi:", e);
       setHasError(true);
       setIsPlaying(false);
       userStoppedRef.current = true;
       isAutoSwitchingRef.current = false;
     }
-  }, [metadata.audio_url, metadata.elapsed_seconds]);
+  }, [metadata.audio_url, metadata.elapsed_seconds, initAudio]);
 
   const togglePlay = useCallback(async () => {
     if (isPlaying) {
@@ -432,10 +494,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isYouTubeLive, resetMp3PlaybackCompletely]);
 
-  // 🌟 PERBAIKAN SAKTI: Sistem Tracker Detik Jingle Akurat & Anti-Throttle Browser
   useEffect(() => {
     const checkAndTriggerJingle = () => {
-      // Jika radio mati atau sedang setel YouTube, amankan timestamp agar tidak menumpuk
       if (!isPlayingRef.current || isYouTubePlayingRef.current) {
         lastJingleTimeRef.current = Date.now();
         return;
@@ -444,7 +504,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       const sekarang = Date.now();
       const selisihWaktu = sekarang - lastJingleTimeRef.current;
 
-      // Jalankan jika sudah masuk target interval (5 menit murni)
       if (selisihWaktu >= JINGLE_INTERVAL) {
         const currentTitle = (metadata.title || "").toLowerCase();
         const sedangAdzan = currentTitle.includes("adzan") || currentTitle.includes("panggilan");
@@ -455,14 +514,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           playJingle();
         } 
         else if (sedangAdzan) {
-          // Jika pas 5 menit bertepatan dengan adzan, mundurkan tracker 1 menit 
-          // agar jingle langsung berbunyi sesaat setelah adzan selesai berkumandang
           lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
         }
       }
     };
 
-    // Jalankan pemantau super ringan tiap 1 detik (1000ms) agar kebal pembatasan background browser
     jingleIntervalRef.current = setInterval(checkAndTriggerJingle, 1000);
     
     return () => {
@@ -477,6 +533,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         hasError,
         metadata,
         listeners,
+        volume,        // 🟢 MENYUNTIKKAN STATE INDIKATOR VOLUME KE PROVIDER
+        setVolume,     // 🟢 MENYUNTIKKAN FUNGSI MANIPULASI VOLUME KE PROVIDER
         togglePlay,
         toggleLivePlayback,
         toggleYouTubeAudio,
@@ -494,6 +552,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       <audio
         ref={audioRef}
         preload="none"
+        crossOrigin="anonymous" // Mengamankan pendaran grafik visualizer dari cors error
         onPause={() => {
           if (!isAutoSwitchingRef.current && userStoppedRef.current) {
             setIsPlaying(false);
