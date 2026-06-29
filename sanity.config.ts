@@ -1,8 +1,8 @@
 import { defineConfig } from 'sanity'
 import { structureTool } from 'sanity/structure'
 import { dashboardTool } from '@sanity/dashboard' 
-import { visionTool } from '@sanity/vision' // Ditambahkan agar menu Vision aktif
-import { schema } from './sanity/schemaTypes' // Pastikan path ini sesuai dengan struktur folder Anda
+import { visionTool } from '@sanity/vision' 
+import { schema } from './sanity/schemaTypes' 
 
 // Impor widget kustom
 import InstallCountWidget from './sanity/widgets/InstallCountWidget'
@@ -13,13 +13,16 @@ import ProjectDetailsWidget from './sanity/widgets/ProjectDetailsWidget'
 // Impor Ikon untuk estetika menu
 import { CalendarIcon, HomeIcon, UsersIcon, PinIcon, ImagesIcon, DownloadIcon, DocumentsIcon } from '@sanity/icons'
 
+// Menggunakan fallback hardcoded agar aman saat build lokal maupun Vercel
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'k492syv1'
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
+
 export default defineConfig({
   name: 'default',
   title: 'PCM Kembaran Studio',
 
-  // BERHASIL DIPERBAIKI: Menggunakan Project ID Baru Milik Pak Aris Suharyanto
-  projectId: 'k492syv1', 
-  dataset: 'production',
+  projectId: projectId, 
+  dataset: dataset,
   basePath: '/studio', 
 
   plugins: [
@@ -35,7 +38,7 @@ export default defineConfig({
             // MENU BARU: Jadwal Kajian & Tabligh Akbar
             S.documentTypeListItem('jadwalKajian').title('Jadwal Kajian & Tabligh').icon(CalendarIcon),
             
-            S.divider(), // Garis pemisah
+            S.divider(), 
 
             // Menu Profil & Organisasi
             S.documentTypeListItem('profile').title('Profil Cabang').icon(HomeIcon),
@@ -86,12 +89,11 @@ export default defineConfig({
       ]
     }),
 
-    // 3. AKTIVASI VISION TOOL (Untuk Query data masa depan agar tidak buntu lagi)
+    // 3. AKTIVASI VISION TOOL
     visionTool()
   ],
 
   schema: {
-    // Pastikan ini merujuk ke schemaTypes/index.ts yang sudah kita update tadi
     types: schema.types,
   },
 })
