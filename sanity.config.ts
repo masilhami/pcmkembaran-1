@@ -13,8 +13,8 @@ import ProjectDetailsWidget from './sanity/widgets/ProjectDetailsWidget'
 // Impor Ikon untuk estetika menu
 import { CalendarIcon, HomeIcon, UsersIcon, PinIcon, ImagesIcon, DownloadIcon, DocumentsIcon } from '@sanity/icons'
 
-// Menggunakan fallback hardcoded agar aman saat build lokal maupun Vercel
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'k492syv1'
+// BERHASIL DIPERBAIKI: Menggunakan Project ID Baru yang Aktif dari image_a33b3d.png
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'jrz5misw'
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
 
 export default defineConfig({
