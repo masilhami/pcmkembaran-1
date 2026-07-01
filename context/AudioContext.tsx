@@ -91,6 +91,9 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const lastSyncedUrlRef = useRef("");
   const userStoppedRef = useRef(true); 
   const isAutoSwitchingRef = useRef(false);
+  
+  // 🔒 SAKELAR GAIB: Mencegah tabrakan beruntun penyebab AbortError di browser modern
+  const isPlayPendingRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
@@ -388,19 +391,22 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // 🎯 PERBAIKAN MUTLAK CORE PLAYBACK (TIME INJECTION SYNC)
+  // 🎯 PERBAIKAN MUTLAK CORE PLAYBACK (TIME INJECTION SYNC & ANTI-ABORT PROTECTION)
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    // Jika antrean play sedang dieksekusi browser, blokir request ganda agar tidak AbortError
+    if (isPlayPendingRef.current) return;
 
     try {
       userStoppedRef.current = false;
       isAutoSwitchingRef.current = true;
       setHasError(false);
+      isPlayPendingRef.current = true; // Kunci Antrean aktif
 
       if (!isInitialized.current) initAudio();
 
-      // 1. Selalu gedor status termutakhir dari backend sesaat sebelum memicu penekanan tombol PLAY
       const freshData = await fetchCurrentRadioStatusFromBackend();
       
       let targetUrl = metadata.audio_url;
@@ -410,7 +416,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         targetUrl = freshData.audio_url;
         currentElapsed = freshData.elapsed_seconds;
         
-        // Selaraskan state metadata agar sinkron dengan respons backend yang paling baru
         setMetadata({
           title: freshData.title || "Radio Suara Berkemajuan",
           artist: freshData.artist || "PCM Kembaran",
@@ -421,7 +426,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (targetUrl && targetUrl.trim() !== "" && targetUrl !== "null") {
-        // Beri trik cache buster query string agar browser menganggap ini stream biner baru, bukan file statis berulang
         const separator = targetUrl.includes('?') ? '&' : '?';
         const cacheBusterUrl = `${targetUrl}${separator}cb=${Date.now()}`;
         
@@ -431,7 +435,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
 
-        // 2. Jika merupakan playlist mp3 statis, paksa timeline untuk melompat langsung ke virtual timeline radio!
         if (!isLiveStreamPipe && currentElapsed && currentElapsed > 0) {
           if (audio.readyState >= 1) {
             if (audio.duration && audio.duration !== Infinity) {
@@ -470,12 +473,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         isAutoSwitchingRef.current = false;
       }, 400);
 
-    } catch (e) {
+    } catch (e: any) {
+      // 🟢 JINAKKAN ABORTERROR: Redam jika ada interupsi browser akibat pergantian src cepat hulu
+      if (e.name === "AbortError") {
+        console.warn("[Audio Engine] Request play dialihkan secara aman oleh load request baru.");
+        return;
+      }
+      
       console.error("Playback gagal dieksekusi:", e);
       setHasError(true);
       setIsPlaying(false);
       userStoppedRef.current = true;
       isAutoSwitchingRef.current = false;
+    } finally {
+      isPlayPendingRef.current = false; // Buka kunci antrean kembali
     }
   }, [metadata.audio_url, metadata.elapsed_seconds, initAudio]);
 
@@ -549,7 +560,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             lastJingleTimeRef.current = sekarang; 
             playJingle();
           } else if (sedangAdzan) {
-            lastJingleTimeRef.current = scams - (JINGLE_INTERVAL - (60 * 1000));
+            // 🟢 FIXED TYPO: Variabel 'scams' sudah diubah ke 'sekarang' dengan benar agar tidak crash
+            lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
           }
           return prev;
         });
