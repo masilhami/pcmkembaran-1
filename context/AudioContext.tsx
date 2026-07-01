@@ -16,12 +16,12 @@ interface AudioContextType {
     title: string; 
     artist: string; 
     art: string; 
-    audio_url?: string | null;          
+    audio_url?: string | null;         
     elapsed_seconds?: number | null;    
   };
   listeners: number;
-  volume: number;          // 🟢 DISURB KEMBALI AGAR SINKRON DENGAN SLIDER FRONTEND
-  setVolume: (vol: number) => void; // 🟢 FUNGSIONALITAS PENGENDALIAN VOLUME DI CONTEXT
+  volume: number;          
+  setVolume: (vol: number) => void; 
   togglePlay: () => void;
   toggleLivePlayback: () => void;
   toggleYouTubeAudio: () => void;
@@ -36,15 +36,24 @@ interface AudioContextType {
   youtubeThumbnail: string;
 }
 
-const AudioContext = createContext<AudioContextType | null>(null);
+const AudioContextInstance = createContext<AudioContextType | null>(null);
 
-// 🟢 PERBAIKAN SAKRAL 1: SINKRONISASI TERPUSAT VIA EDGE NETWORK CACHE
-// Mengembalikan pembacaan data ke server router agar 1.000 jemaah mendengar suara yang sama di detik yang sama
+// OBJEK FALLBACK STANDAR JIKA BACKEND ATAU CMS OFFLINE
+const FALLBACK_RADIO_DATA = {
+  active: true,
+  type: "playlist_mp3",
+  title: "Radio Suara Berkemajuan",
+  artist: "Dakwah Berkemajuan Mencerahkan Kehidupan",
+  audio_url: "https://sdit.my.id/radio/stream.php", 
+  thumbnail: "/bg-player.png",
+  elapsed_seconds: 0
+};
+
 async function fetchCurrentRadioStatusFromBackend() {
   try {
     const origin = typeof window !== "undefined" && window.location.origin 
       ? window.location.origin 
-      : "https://radioalmuttaqin.com"; // Sesuaikan origin domain proyek produksi Anda, Fal
+      : "https://pcmkembaran.com"; 
     
     const targetUrl = `${origin.replace(/\/$/, "")}/api/get-current-radio`;
 
@@ -53,32 +62,28 @@ async function fetchCurrentRadioStatusFromBackend() {
       headers: {
         "Accept": "application/json",
         "Content-Type": "application/json"
-      }
+      },
+      cache: "no-store"
     });
 
     const contentType = res.headers.get("content-type");
+    
     if (!res.ok || (contentType && contentType.includes("text/html"))) {
-      throw new Error("Endpoint mengembalikan HTML palsu");
+      console.warn("[Radio PCM API] Endpoint mengembalikan HTML/Eror. Mengalihkan ke data fallback lokal.");
+      return FALLBACK_RADIO_DATA;
     }
 
     return await res.json();
   } catch (error) {
-    console.error("[Radio PCM API] Gagal total sinkronisasi terpusat, alihkan ke fallback:", error);
-    return {
-      active: true,
-      type: "playlist_mp3",
-      title: "Radio Suara Berkemajuan",
-      artist: "Dakwah Berkemajuan Mencerahkan Kehidupan",
-      audio_url: "http://ybmsaum.com/radio/stream.php", // Link fallback stream PHP badak Anda
-      thumbnail: "/bg-player.png",
-      elapsed_seconds: 0
-    };
+    console.error("[Radio PCM API] Gagal total mengambil status backend, alihkan ke fallback:", error);
+    return FALLBACK_RADIO_DATA;
   }
 }
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<any>(null);
+  // 🎯 PERBAIKAN 1: Gunakan global jenis AudioContext browser, bukan instansiasi React Context agar tidak bentrok
+  const audioContextRef = useRef<globalThis.AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const youtubeToggleRef = useRef<(() => void) | null>(null);
@@ -92,7 +97,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const isPlayingRef = useRef(false);
   const isYouTubePlayingRef = useRef(false);
 
-  // 🟢 VOLUME MANAGEMENT (SINKRON SEUMUR HIDUP)
   const [volume, _setVolume] = useState(0.8);
   const volumeRef = useRef(0.8);
 
@@ -122,11 +126,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const jingleRef = useRef<HTMLAudioElement | null>(null);
   const jingleIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isJinglePlayingRef = useRef(false);
-
   const lastJingleTimeRef = useRef<number>(Date.now());
 
   const JINGLE_INTERVAL = 5 * 60 * 1000; 
-  const JINGLE_FILE = "/audio/jingle-pcm.mp3";
+  const JINGLE_FILE = "https://archive.org/download/jingle-pcm/jingle-pcm.mp3";
 
   // =================================================================
   // ⚙️ ENGINE CORE INITIALIZER (WEB AUDIO API NODE PROTECTION)
@@ -269,7 +272,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const fetchMetadata = useCallback(async () => {
     try {
-      // 🟢 PERBAIKAN SAKRAL 2: Alihkan penarikan data ke API Router yang dilindungi Edge Caching
       const data = await fetchCurrentRadioStatusFromBackend();
       
       if (!data || !data.active) {
@@ -321,8 +323,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = audioUrl;
           audio.load();
 
-          if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0 && audio.duration && audio.duration !== Infinity) {
-            audio.currentTime = elapsedSeconds;
+          // 🎯 PERBAIKAN 2: Pastikan readyState sudah memuat metadata sebelum memanipulasi currentTime
+          if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0) {
+            if (audio.readyState >= 1) {
+              if (audio.duration && audio.duration !== Infinity) {
+                audio.currentTime = elapsedSeconds;
+              }
+            } else {
+              const onMetadataLoaded = () => {
+                if (audio.duration && audio.duration !== Infinity) {
+                  audio.currentTime = elapsedSeconds;
+                }
+                audio.removeEventListener("loadedmetadata", onMetadataLoaded);
+              };
+              audio.addEventListener("loadedmetadata", onMetadataLoaded);
+            }
           }
 
           if (isPlayingRef.current && !userStoppedRef.current) {
@@ -341,8 +356,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             isAutoSwitchingRef.current = false;
           }
         } else {
-          // Sinkronisasi ulang lompatan detik secara teratur jika ada deviasi di atas 5 detik
-          if (!isLiveStreamPipe && elapsedSeconds && Math.abs(audio.currentTime - elapsedSeconds) > 5) {
+          // 🎯 PERBAIKAN 3: Proteksi readyState untuk sinkronisasi detik berjalan rutin
+          if (!isLiveStreamPipe && elapsedSeconds && audio.readyState >= 1 && Math.abs(audio.currentTime - elapsedSeconds) > 5) {
             audio.currentTime = elapsedSeconds;
           }
           lastSyncedUrlRef.current = audioUrl;
@@ -400,7 +415,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
 
         if (!isLiveStreamPipe && metadata.elapsed_seconds && metadata.elapsed_seconds > 0) {
-          audio.currentTime = metadata.elapsed_seconds;
+          if (audio.readyState >= 1) {
+            audio.currentTime = metadata.elapsed_seconds;
+          } else {
+            const onMetadataLoaded = () => {
+              audio.currentTime = metadata.elapsed_seconds!;
+              audio.removeEventListener("loadedmetadata", onMetadataLoaded);
+            };
+            audio.addEventListener("loadedmetadata", onMetadataLoaded);
+          }
         }
       } else {
         const freshData = await fetchCurrentRadioStatusFromBackend();
@@ -413,7 +436,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           const isLiveStreamPipe = fallbackUrl.includes("stream.php") || fallbackUrl.includes("pcmkembaran.com");
 
           if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
-            audio.currentTime = freshData.elapsed_seconds;
+            if (audio.readyState >= 1) {
+              audio.currentTime = freshData.elapsed_seconds;
+            } else {
+              const onMetadataLoaded = () => {
+                audio.currentTime = freshData.elapsed_seconds;
+                audio.removeEventListener("loadedmetadata", onMetadataLoaded);
+              };
+              audio.addEventListener("loadedmetadata", onMetadataLoaded);
+            }
           }
         }
       }
@@ -505,17 +536,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       const selisihWaktu = sekarang - lastJingleTimeRef.current;
 
       if (selisihWaktu >= JINGLE_INTERVAL) {
-        const currentTitle = (metadata.title || "").toLowerCase();
-        const sedangAdzan = currentTitle.includes("adzan") || currentTitle.includes("panggilan");
+        // 🎯 PERBAIKAN 4: Baca langsung dari state termutakhir di dalam interval loop secara dinamis
+        setMetadata((prev) => {
+          const currentTitle = (prev.title || "").toLowerCase();
+          const sedangAdzan = currentTitle.includes("adzan") || currentTitle.includes("panggilan");
 
-        if (!isJinglePlayingRef.current && !sedangAdzan) {
-          console.log("⏰ Mengumandangkan Jingle PCM tepat waktu.");
-          lastJingleTimeRef.current = sekarang; 
-          playJingle();
-        } 
-        else if (sedangAdzan) {
-          lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
-        }
+          if (!isJinglePlayingRef.current && !sedangAdzan) {
+            console.log("⏰ Mengumandangkan Jingle PCM tepat waktu.");
+            lastJingleTimeRef.current = sekarang; 
+            playJingle();
+          } else if (sedangAdzan) {
+            lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
+          }
+          return prev;
+        });
       }
     };
 
@@ -524,17 +558,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (jingleIntervalRef.current) clearInterval(jingleIntervalRef.current);
     };
-  }, [playJingle, JINGLE_INTERVAL, metadata.title]);
+  }, [playJingle, JINGLE_INTERVAL]);
 
   return (
-    <AudioContext.Provider
+    <AudioContextInstance.Provider
       value={{
         isPlaying,
         hasError,
         metadata,
         listeners,
-        volume,        // 🟢 MENYUNTIKKAN STATE INDIKATOR VOLUME KE PROVIDER
-        setVolume,     // 🟢 MENYUNTIKKAN FUNGSI MANIPULASI VOLUME KE PROVIDER
+        volume,        
+        setVolume,     
         togglePlay,
         toggleLivePlayback,
         toggleYouTubeAudio,
@@ -552,7 +586,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       <audio
         ref={audioRef}
         preload="none"
-        crossOrigin="anonymous" // Mengamankan pendaran grafik visualizer dari cors error
+        crossOrigin="anonymous" 
         onPause={() => {
           if (!isAutoSwitchingRef.current && userStoppedRef.current) {
             setIsPlaying(false);
@@ -568,12 +602,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         className="hidden"
       />
       {children}
-    </AudioContext.Provider>
+    </AudioContextInstance.Provider>
   );
 }
 
 export const useAudio = () => {
-  const context = useContext(AudioContext);
+  const context = useContext(AudioContextInstance);
   if (!context) throw new Error("useAudio harus di dalam AudioProvider");
   return context;
 };

@@ -14,7 +14,7 @@ import ProjectDetailsWidget from './sanity/widgets/ProjectDetailsWidget'
 import { CalendarIcon, HomeIcon, UsersIcon, PinIcon, ImagesIcon, DownloadIcon, DocumentsIcon } from '@sanity/icons'
 
 // BERHASIL DIPERBAIKI: Menggunakan Project ID Baru yang Aktif dari image_a33b3d.png
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'jrz5misw'
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'deyoeizv'
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
 
 export default defineConfig({
