@@ -82,7 +82,6 @@ async function fetchCurrentRadioStatusFromBackend() {
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // 🎯 PERBAIKAN 1: Gunakan global jenis AudioContext browser, bukan instansiasi React Context agar tidak bentrok
   const audioContextRef = useRef<globalThis.AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -323,7 +322,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           audio.src = audioUrl;
           audio.load();
 
-          // 🎯 PERBAIKAN 2: Pastikan readyState sudah memuat metadata sebelum memanipulasi currentTime
           if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0) {
             if (audio.readyState >= 1) {
               if (audio.duration && audio.duration !== Infinity) {
@@ -356,7 +354,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             isAutoSwitchingRef.current = false;
           }
         } else {
-          // 🎯 PERBAIKAN 3: Proteksi readyState untuk sinkronisasi detik berjalan rutin
           if (!isLiveStreamPipe && elapsedSeconds && audio.readyState >= 1 && Math.abs(audio.currentTime - elapsedSeconds) > 5) {
             audio.currentTime = elapsedSeconds;
           }
@@ -391,6 +388,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
+  // 🎯 PERBAIKAN MUTLAK CORE PLAYBACK (TIME INJECTION SYNC)
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -402,49 +400,55 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       if (!isInitialized.current) initAudio();
 
-      const targetUrl = metadata.audio_url;
+      // 1. Selalu gedor status termutakhir dari backend sesaat sebelum memicu penekanan tombol PLAY
+      const freshData = await fetchCurrentRadioStatusFromBackend();
+      
+      let targetUrl = metadata.audio_url;
+      let currentElapsed = metadata.elapsed_seconds;
+
+      if (freshData && freshData.active && freshData.audio_url) {
+        targetUrl = freshData.audio_url;
+        currentElapsed = freshData.elapsed_seconds;
+        
+        // Selaraskan state metadata agar sinkron dengan respons backend yang paling baru
+        setMetadata({
+          title: freshData.title || "Radio Suara Berkemajuan",
+          artist: freshData.artist || "PCM Kembaran",
+          art: freshData.thumbnail || "/bg-player.png",
+          audio_url: freshData.audio_url,
+          elapsed_seconds: freshData.elapsed_seconds
+        });
+      }
 
       if (targetUrl && targetUrl.trim() !== "" && targetUrl !== "null") {
-        if (!audio.src || audio.src === "" || audio.src === window.location.href || lastSyncedUrlRef.current !== targetUrl) {
-          lastSyncedUrlRef.current = targetUrl;
-          audio.src = targetUrl;
-        }
+        // Beri trik cache buster query string agar browser menganggap ini stream biner baru, bukan file statis berulang
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        const cacheBusterUrl = `${targetUrl}${separator}cb=${Date.now()}`;
         
+        lastSyncedUrlRef.current = targetUrl;
+        audio.src = cacheBusterUrl;
         audio.load();
 
         const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
 
-        if (!isLiveStreamPipe && metadata.elapsed_seconds && metadata.elapsed_seconds > 0) {
+        // 2. Jika merupakan playlist mp3 statis, paksa timeline untuk melompat langsung ke virtual timeline radio!
+        if (!isLiveStreamPipe && currentElapsed && currentElapsed > 0) {
           if (audio.readyState >= 1) {
-            audio.currentTime = metadata.elapsed_seconds;
+            if (audio.duration && audio.duration !== Infinity) {
+              audio.currentTime = Math.min(currentElapsed, audio.duration - 1);
+            } else {
+              audio.currentTime = currentElapsed;
+            }
           } else {
             const onMetadataLoaded = () => {
-              audio.currentTime = metadata.elapsed_seconds!;
+              if (audio.duration && audio.duration !== Infinity) {
+                audio.currentTime = Math.min(currentElapsed!, audio.duration - 1);
+              } else {
+                audio.currentTime = currentElapsed!;
+              }
               audio.removeEventListener("loadedmetadata", onMetadataLoaded);
             };
             audio.addEventListener("loadedmetadata", onMetadataLoaded);
-          }
-        }
-      } else {
-        const freshData = await fetchCurrentRadioStatusFromBackend();
-        if (freshData && freshData.active && freshData.audio_url) {
-          const fallbackUrl = freshData.audio_url;
-          lastSyncedUrlRef.current = fallbackUrl;
-          audio.src = fallbackUrl;
-          audio.load();
-
-          const isLiveStreamPipe = fallbackUrl.includes("stream.php") || fallbackUrl.includes("pcmkembaran.com");
-
-          if (!isLiveStreamPipe && freshData.elapsed_seconds && freshData.elapsed_seconds > 0) {
-            if (audio.readyState >= 1) {
-              audio.currentTime = freshData.elapsed_seconds;
-            } else {
-              const onMetadataLoaded = () => {
-                audio.currentTime = freshData.elapsed_seconds;
-                audio.removeEventListener("loadedmetadata", onMetadataLoaded);
-              };
-              audio.addEventListener("loadedmetadata", onMetadataLoaded);
-            }
           }
         }
       }
@@ -536,7 +540,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       const selisihWaktu = sekarang - lastJingleTimeRef.current;
 
       if (selisihWaktu >= JINGLE_INTERVAL) {
-        // 🎯 PERBAIKAN 4: Baca langsung dari state termutakhir di dalam interval loop secara dinamis
         setMetadata((prev) => {
           const currentTitle = (prev.title || "").toLowerCase();
           const sedangAdzan = currentTitle.includes("adzan") || currentTitle.includes("panggilan");
@@ -546,7 +549,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             lastJingleTimeRef.current = sekarang; 
             playJingle();
           } else if (sedangAdzan) {
-            lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
+            lastJingleTimeRef.current = scams - (JINGLE_INTERVAL - (60 * 1000));
           }
           return prev;
         });

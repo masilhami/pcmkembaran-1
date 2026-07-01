@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false); 
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false); // Kontrol search responsive mobile
   const [searchQuery, setSearchQuery] = useState(""); 
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function Header() {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+      setIsMobileSearchOpen(false); // Otomatis tutup laci jika via mobile
     }
   };
 
@@ -145,7 +147,6 @@ export default function Header() {
 
         /* 📱 RESPONSIVE INTERFACE BREAKPOINTS */
         @media (max-width: 992px) { 
-          .top-center-search { display: none !important; } 
           .header-banner-right { display: none !important; }
           .logo-text-box h1 { font-size: 26px !important; letter-spacing: -0.5px !important; }
           .tagline-text { font-size: 8.5px !important; letter-spacing: 0.2px; text-align: left !important; text-align-last: auto !important; margin-top: 3px !important; }
@@ -165,8 +166,8 @@ export default function Header() {
       <div className="w-full bg-white border-b border-gray-100 py-2">
         <div className="max-w-[1200px] mx-auto px-4 flex items-center justify-between gap-4">
           
-          {/* Hamburger Menu Icon Wrapper (Gaya Sentuh Diperluas) */}
-          <div className="flex-1 flex justify-start">
+          {/* Sisi Kiri: Hamburger Menu Icon */}
+          <div className="flex-1 flex justify-start items-center gap-2">
             <button 
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)} 
@@ -177,24 +178,40 @@ export default function Header() {
               <span className="block w-6 h-[3px] bg-[var(--abah-blue)] rounded-sm transition-all duration-300" style={{ opacity: isMenuOpen ? 0 : 1 }}></span>
               <span className="block w-6 h-[3px] bg-[var(--abah-blue)] rounded-sm transition-all duration-300" style={{ transform: isMenuOpen ? 'rotate(-45deg) translate(5px, -5px)' : 'none' }}></span>
             </button>
+
+            {/* Ikon Kaca Pembesar khusus Mobile Layout */}
+            <button 
+              type="button" 
+              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+              className="flex lg:hidden p-2 text-[var(--abah-blue)] hover:opacity-80 outline-none focus:outline-none bg-transparent border-none"
+              aria-label="Toggle Mobile Search"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            </button>
           </div>
 
-          {/* Desktop Search Engine */}
-          <div className="top-center-search flex-1 hidden md:flex justify-center">
-            <form onSubmit={handleSearch} className="flex items-center border border-gray-300 rounded-full py-1 pr-1 pl-4 bg-white w-full max-w-[380px] shadow-sm">
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Cari naskah khutbah atau berita..." className="border-none outline-none w-full浏览 text-xs color-[#444]" />
-              <button type="submit" className="bg-[var(--abah-blue)] border-none w-8 h-8 rounded-full cursor-pointer flex items-center justify-center shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          {/* 🟢 PERBAIKAN STRUKTUR CSS FORM SEARCH DESKTOP (Sesuai image_0a1814.png) */}
+          <div className="hidden lg:flex flex-1 justify-center max-w-[400px]">
+            <form onSubmit={handleSearch} className="flex items-center justify-between border border-gray-300 rounded-full p-1 pl-4 bg-white w-full shadow-sm group focus-within:border-[var(--abah-blue)] transition-colors">
+              <input 
+                type="text" 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                placeholder="Cari naskah khutbah atau berita..." 
+                className="border-none outline-none w-full text-xs text-gray-700 bg-transparent pr-2 placeholder-gray-400 min-w-0" 
+              />
+              <button type="submit" className="bg-[var(--abah-blue)] hover:bg-opacity-90 border-none w-8 h-8 rounded-full cursor-pointer flex items-center justify-center shrink-0 transition-all outline-none focus:outline-none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
               </button>
             </form>
           </div>
 
-          {/* Right Action Button Group */}
+          {/* Sisi Kanan: Action Buttons Group */}
           <div className="flex-1 flex gap-2 justify-end items-center">
-            <Link href="https://sociabuzz.com/pcmkembaran/tribe" className="bg-[var(--abah-blue)] color-[#ffffff] px-4 py-1.5 rounded-full text-[11px] font-extrabold text-white no-underline tracking-wider text-center whitespace-nowrap">DONASI</Link>
+            <Link href="https://sociabuzz.com/pcmkembaran/tribe" className="bg-[var(--abah-blue)] color-[#ffffff] px-4 py-1.5 rounded-full text-[11px] font-extrabold text-white no-underline tracking-wider text-center whitespace-nowrap hover:bg-opacity-90 transition-all">DONASI</Link>
             <button 
               onClick={handleAuthAction}
-              className="auth-btn whitespace-nowrap"
+              className="auth-btn whitespace-nowrap hover:opacity-90 transition-all"
               style={{ 
                 backgroundColor: user ? '#ff4d4f' : 'var(--abah-gold)', 
                 color: user ? '#fff' : '#000' 
@@ -206,7 +223,26 @@ export default function Header() {
         </div>
       </div>
 
-      {/* SIDE DRAWER */}
+      {/* 🟢 DRAWER LACI KHUSUS MOBILE FORM SEARCH */}
+      {isMobileSearchOpen && (
+        <div className="w-full bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex lg:hidden animate-fade-in z-40">
+          <form onSubmit={handleSearch} className="flex items-center justify-between border border-gray-300 rounded-full p-1 pl-4 bg-white w-full shadow-inner">
+            <input 
+              type="text" 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              placeholder="Cari naskah khutbah atau berita..." 
+              className="border-none outline-none w-full text-xs text-gray-700 bg-transparent pr-2 placeholder-gray-400 min-w-0"
+              autoFocus
+            />
+            <button type="submit" className="bg-[var(--abah-blue)] border-none w-8 h-8 rounded-full cursor-pointer flex items-center justify-center shrink-0 outline-none">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* SIDE DRAWER MENU */}
       <div style={{ position: 'fixed', top: 0, left: isMenuOpen ? 0 : '-100%', width: '280px', height: '100vh', backgroundColor: '#fff', zIndex: 2500, transition: '0.4s ease', boxShadow: '5px 0 15px rgba(0,0,0,0.1)', padding: '30px 20px', overflowY: 'auto' }}>
         <h3 style={{ color: 'var(--abah-blue)', fontSize: '18px', fontWeight: '900', borderBottom: '2px solid var(--abah-gold)', paddingBottom: '10px', marginBottom: '20px' }}>NAVIGASI</h3>
         <ul style={{ listStyle: 'none', padding: 0 }}>
@@ -256,7 +292,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* LAPIS 3 & 4: NAVIGATION (STICKY SYSTEM WITH AUTO OVERFLOW SCROLL) */}
+      {/* LAPIS 3 & 4: NAVIGATION */}
       <div className="sticky-nav-group sticky top-0 z-[1000] shadow-md">
         
         {/* Lapis 3 Menu Utama */}
@@ -275,7 +311,7 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Lapis 4 Menu Sekunder (X-Axis Scroll Responsive) */}
+        {/* Lapis 4 Menu Sekunder */}
         <nav className="w-full bg-[#f9f9f9] border-b border-gray-200">
           <div className="max-w-[1200px] mx-auto">
             <ul className="lapis4-list flex list-none p-0 m-0 overflow-x-auto select-none touch-pan-x items-center">
@@ -289,7 +325,6 @@ export default function Header() {
                 </li>
               ))}
 
-              {/* TULISAN "RADIO" BISA DIKLIK MENUJU /radio & MEMILIKI DROPDOWN JADWAL */}
               <li className="dropdown-parent flex items-center shrink-0 relative">
                 <Link href="/radio" className="lapis4-link">
                   RADIO <span className="text-[8px] ml-1">▼</span>
