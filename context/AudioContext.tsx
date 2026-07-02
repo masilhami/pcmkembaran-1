@@ -309,6 +309,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // 🟢 PEMBARUAN SAKRAL: Forced Re-Trigger Playback saat pergantian hulu acara tiba
       const handleAudioSourceSync = (audioUrl: string, elapsedSeconds?: number) => {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
@@ -319,20 +320,26 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const isLiveStreamPipe = audioUrl.includes("stream.php") || audioUrl.includes("pcmkembaran.com");
 
         if (cleanCurrentUrl !== cleanTargetUrl) {
+          console.log("🔄 Deteksi pergantian acara hulu. Sinkronisasi lini masa baru...");
           lastSyncedUrlRef.current = audioUrl;
-          
           isAutoSwitchingRef.current = true; 
-          audio.src = audioUrl;
+          
+          const separator = audioUrl.includes('?') ? '&' : '?';
+          audio.src = `${audioUrl}${separator}cb=${Date.now()}`;
           audio.load();
 
           if (!isLiveStreamPipe && elapsedSeconds && elapsedSeconds > 0) {
             if (audio.readyState >= 1) {
               if (audio.duration && audio.duration !== Infinity) {
+                audio.currentTime = Math.min(elapsedSeconds, audio.duration - 1);
+              } else {
                 audio.currentTime = elapsedSeconds;
               }
             } else {
               const onMetadataLoaded = () => {
                 if (audio.duration && audio.duration !== Infinity) {
+                  audio.currentTime = Math.min(elapsedSeconds, audio.duration - 1);
+                } else {
                   audio.currentTime = elapsedSeconds;
                 }
                 audio.removeEventListener("loadedmetadata", onMetadataLoaded);
@@ -341,23 +348,48 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          if (isPlayingRef.current && !userStoppedRef.current) {
+          // Jika status radio jemaah aktif (isPlaying), paksa jalankan pemutaran ulang acara baru
+          if (isPlayingRef.current) {
             if (!isInitialized.current) initAudio();
             audio.volume = volumeRef.current;
-            audio.play()
-              .then(() => { 
-                isAutoSwitchingRef.current = false; 
-              })
-              .catch(err => {
-                console.warn("Autoplay ditolak saat sinkronisasi lagu baru:", err);
-                isAutoSwitchingRef.current = false;
-                setIsPlaying(false);
-              });
+            
+            if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+              audioContextRef.current.resume();
+            }
+
+            const triggerForcedPlay = () => {
+              audio.play()
+                .then(() => { 
+                  console.log("✅ Berhasil transisi acara secara seamless.");
+                  isAutoSwitchingRef.current = false; 
+                })
+                .catch(err => {
+                  if (err.name === "AbortError") {
+                    setTimeout(() => {
+                      audio.play().catch(() => setIsPlaying(false));
+                    }, 200);
+                  } else {
+                    console.warn("Autoplay terhalang oleh browser:", err);
+                    setIsPlaying(false);
+                  }
+                  isAutoSwitchingRef.current = false;
+                });
+            };
+
+            if (audio.readyState >= 2) {
+              triggerForcedPlay();
+            } else {
+              const onCanPlay = () => {
+                triggerForcedPlay();
+                audio.removeEventListener("canplay", onCanPlay);
+              };
+              audio.addEventListener("canplay", onCanPlay);
+            }
           } else {
             isAutoSwitchingRef.current = false;
           }
         } else {
-          if (!isLiveStreamPipe && elapsedSeconds && audio.readyState >= 1 && Math.abs(audio.currentTime - elapsedSeconds) > 5) {
+          if (!isLiveStreamPipe && elapsedSeconds && audio.readyState >= 1 && Math.abs(audio.currentTime - elapsedSeconds) > 6) {
             audio.currentTime = elapsedSeconds;
           }
           lastSyncedUrlRef.current = audioUrl;
@@ -391,19 +423,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchMetadata]);
 
-  // 🎯 PERBAIKAN MUTLAK CORE PLAYBACK (TIME INJECTION SYNC & ANTI-ABORT PROTECTION)
   const startPlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Jika antrean play sedang dieksekusi browser, blokir request ganda agar tidak AbortError
     if (isPlayPendingRef.current) return;
 
     try {
       userStoppedRef.current = false;
       isAutoSwitchingRef.current = true;
       setHasError(false);
-      isPlayPendingRef.current = true; // Kunci Antrean aktif
+      isPlayPendingRef.current = true; 
 
       if (!isInitialized.current) initAudio();
 
@@ -474,7 +504,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }, 400);
 
     } catch (e: any) {
-      // 🟢 JINAKKAN ABORTERROR: Redam jika ada interupsi browser akibat pergantian src cepat hulu
       if (e.name === "AbortError") {
         console.warn("[Audio Engine] Request play dialihkan secara aman oleh load request baru.");
         return;
@@ -486,7 +515,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       userStoppedRef.current = true;
       isAutoSwitchingRef.current = false;
     } finally {
-      isPlayPendingRef.current = false; // Buka kunci antrean kembali
+      isPlayPendingRef.current = false; 
     }
   }, [metadata.audio_url, metadata.elapsed_seconds, initAudio]);
 
@@ -560,7 +589,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             lastJingleTimeRef.current = sekarang; 
             playJingle();
           } else if (sedangAdzan) {
-            // 🟢 FIXED TYPO: Variabel 'scams' sudah diubah ke 'sekarang' dengan benar agar tidak crash
             lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
           }
           return prev;
