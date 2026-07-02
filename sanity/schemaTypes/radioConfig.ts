@@ -118,6 +118,7 @@ export default {
               options: {
                 list: [
                   { title: '🎥 Live YouTube', value: 'youtube_live' },
+                  { title: '📺 Video YouTube Biasa (Statis / Kajian)', value: 'youtube_static' },
                   { title: '🎵 Playlist MP3 (Archive.org Teks URL)', value: 'playlist_mp3' },
                   { title: '📻 Relay Radio FM / Live Stream Lain', value: 'relay_stream' },
                 ],
@@ -147,26 +148,27 @@ export default {
             },
 
             // -----------------------------------------------------------------
-            // FIELD KONDISIONAL: MUNCUL JIKA MEMILIH MODE YOUTUBE LIVE
+            // FIELD KONDISIONAL: MUNCUL JIKA LIVE YOUTUBE / YOUTUBE STATIS
             // -----------------------------------------------------------------
             {
               name: 'youtubeVideoId',
               title: 'YouTube Video ID',
               type: 'string',
-              description: 'Masukkan ID video saja dari tautan live streaming YouTube. (Contoh: dQw4w9WgXcQ)',
+              description: 'Masukkan ID video saja dari tautan live streaming atau video biasa YouTube. (Contoh: dQw4w9WgXcQ)',
               placeholder: 'dQw4w9WgXcQ',
-              hidden: ({ parent }: any) => parent?.broadcastMode !== 'youtube_live',
+              hidden: ({ parent }: any) => parent?.broadcastMode !== 'youtube_live' && parent?.broadcastMode !== 'youtube_static',
               validation: (rule: Rule) =>
                 rule.custom((value, context: any) => {
-                  if (context.parent?.broadcastMode === 'youtube_live' && !value) {
-                    return 'Video ID wajib diisi jika Anda memilih mode Live YouTube.';
+                  const mode = context.parent?.broadcastMode;
+                  if ((mode === 'youtube_live' || mode === 'youtube_static') && !value) {
+                    return 'Video ID wajib diisi jika Anda memilih mode berbasis YouTube.';
                   }
                   return true;
                 }),
             },
 
             // -----------------------------------------------------------------
-            // 🛑 FIELD KONDISIONAL PLAYLIST: DISECURE ANTI-UPLOAD MANUAL SANITY
+            // FIELD KONDISIONAL PLAYLIST MP3 ARCHIVE
             // -----------------------------------------------------------------
             {
               name: 'playlist',
@@ -188,7 +190,6 @@ export default {
                   title: 'Track Audio',
                   icon: () => '🎵',
                   fields: [
-                    // 🟢 PERBAIKAN SAKRAL 1: Tombol file upload dihapus total! Diganti input text URL murni.
                     { 
                       name: 'audioUrl', 
                       title: 'Direct Link MP3 Dari Archive.org', 
@@ -197,13 +198,13 @@ export default {
                       placeholder: 'https://archive.org/download/...',
                       validation: (rule: Rule) => 
                         rule.required()
-                            .uri({ scheme: ['http', 'https'] })
-                            .custom((value: string | undefined) => {
-                              if (value && !value.toLowerCase().includes('archive.org')) {
-                                return '🚨 BAHAYA! Wajib menggunakan server host archive.org agar kuota Sanity/Vercel tidak jebol!';
-                              }
-                              return true;
-                            })
+                          .uri({ scheme: ['http', 'https'] })
+                          .custom((value: string | undefined) => {
+                            if (value && !value.toLowerCase().includes('archive.org')) {
+                              return '🚨 BAHAYA! Wajib menggunakan server host archive.org agar kuota Sanity/Vercel tidak jebol!';
+                            }
+                            return true;
+                          })
                     },
                     { 
                       name: 'trackTitle', 
@@ -217,8 +218,6 @@ export default {
                       type: 'string',
                       description: 'Kosongkan jika ingin otomatis mengikuti nama pembicara utama di atas.',
                     },
-                    // 🟢 PERBAIKAN SAKRAL 2: Sediakan input durasi manual (dalam format detik)
-                    // Karena file tidak lagi diupload ke Sanity, metadata duration internal tidak bisa dibaca otomatis.
                     {
                       name: 'duration',
                       title: 'Durasi Total Audio (Hitungan Detik)',
@@ -234,7 +233,7 @@ export default {
                       url: 'audioUrl'
                     },
                     prepare(selection: any) {
-                      const { title, artist, url } = selection;
+                      const { title, artist } = selection;
                       return {
                         title: title || 'Track Tanpa Judul',
                         subtitle: artist ? `👤 ${artist} | 🔗 Link Aman` : `👤 Pengisi Blok | 🔗 Link Aman`,
@@ -260,6 +259,7 @@ export default {
               
               let modeLabel = '🎵 MP3 Playlist'
               if (mode === 'youtube_live') modeLabel = '🎥 YT Live'
+              if (mode === 'youtube_static') modeLabel = '📺 YT Biasa (Statis)'
               if (mode === 'relay_stream') modeLabel = '📻 FM Relay'
               
               const dayLabels: Record<string, string> = {

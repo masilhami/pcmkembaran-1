@@ -160,7 +160,7 @@ export async function GET() {
           program_title: "Adzan Otomatis Wilayah Purwokerto",
           audio_url: ADZAN_URL,
           elapsed_seconds: elapsedAdzanSeconds > 10 ? 0 : elapsedAdzanSeconds, 
-        }, { headers: adzanHeaders }); // 🟢 FIX: Sekarang header adzanHeaders sudah terpasang mutlak di sini!
+        }, { headers: adzanHeaders });
       }
     } catch (e) {
       console.error(e);
@@ -226,6 +226,10 @@ export async function GET() {
 
           if (isYoutube) {
             const videoId = activeSchedule.youtubeVideoId?.trim() || null;
+            
+            // 🟢 FIX MUTLAK SINKRONISASI YOUTUBE STATIS:
+            // Kirim kalkulasi selisih detik riil sejak jadwal dimulai ke properti elapsed_seconds, 
+            // agar frontend player bisa memaksa lompat (seekTo) ke menit yang sedang berjalan!
             return NextResponse.json({
               active: true,
               type: "youtube_live",
@@ -235,7 +239,7 @@ export async function GET() {
               artist: activeSchedule.speaker || "PCM Kembaran",
               program_title: stationName,
               audio_url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
-              elapsed_seconds: 0
+              elapsed_seconds: Math.max(0, secondsSinceScheduleStarted)
             }, { headers: getSecureHeaders() });
           }
 
