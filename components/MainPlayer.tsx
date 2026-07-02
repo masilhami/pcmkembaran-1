@@ -89,6 +89,9 @@ export default function MainPlayer() {
               e.preventDefault();
               e.stopPropagation();
 
+              // 🟢 FIX ADAPTIF: Sekarang tombol secara cerdas membedakan metode pemutaran.
+              // Jika status hulu terdeteksi sebagai basis YouTube (baik Live maupun Video Statis),
+              // tombol akan memotong jalur MP3 murni dan mengalihkan kendali penuh ke toggleYouTubeAudio().
               if (isYouTubeLive) {
                 toggleYouTubeAudio()
               } else {

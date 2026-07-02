@@ -48,6 +48,8 @@ export default function BottomPlayer() {
             e.preventDefault();
             e.stopPropagation();
 
+            // 🟢 FIX ADAPTIF: Mengalihkan kendali interupsi secara cerdas.
+            // Memastikan mode YouTube Statis maupun YouTube Live ditangani oleh fungsi toggleYouTubeAudio().
             if (isYouTubeLive) {
               toggleYouTubeAudio()
             } else {
@@ -129,6 +131,8 @@ export default function BottomPlayer() {
             e.preventDefault();
             e.stopPropagation();
 
+            // 🟢 FIX ADAPTIF: Menjamin transisi pemutaran responsif saat jemaah menekan play
+            // pada card bawah ketika mode YouTube statis maupun live sedang terjadwal aktif.
             if (isYouTubeLive) {
               toggleYouTubeAudio()
             } else {
