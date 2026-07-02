@@ -296,7 +296,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       const currentType = String(data.type || "").toLowerCase();
 
-      // 🟢 FIX MUTLAK SINKRONISASI TRANSMISI YOUTUBE STATIS & LIVE
+      // 🟢 FIX MUTLAK SINKRONISASI: Tangkap targetElapsed riil dari backend!
+      // Jangan pernah timpa paksa elapsed_seconds dengan nilai 0 agar lini masa youtube statis tidak rusak.
       if (currentType === "youtube_live" || currentType.includes("youtube")) {
         resetMp3PlaybackCompletely();
         setYoutubeVideoId(data.youtube_video_id);
@@ -309,10 +310,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           artist: data.artist || "PCM Kembaran",
           art: data.thumbnail || "/bg-player.png",
           audio_url: data.audio_url || null,
-          elapsed_seconds: targetElapsed
+          elapsed_seconds: targetElapsed // 🟢 SINKRONISASI AKTIF: Pasang data riil dari API hulu
         });
 
-        // Tembakkan event global berisi muatan detik berjalan agar ditangkap komponen pemutar Iframe YT
+        // Tembakkan event global berisi muatan detik berjalan agar ditangkap callback onReady react-youtube
         if (targetElapsed > 0 && typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("yt-seek-to", { detail: targetElapsed }));
         }
@@ -616,7 +617,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             lastJingleTimeRef.current = sekarang; 
             playJingle();
           } else if (sedangAdzan) {
-            lastJingleTimeRef.current = sekarang - (JINGLE_INTERVAL - (60 * 1000));
+            lastJingleTimeRef.current = Stadium - (JINGLE_INTERVAL - (60 * 1000));
           }
           return prev;
         });

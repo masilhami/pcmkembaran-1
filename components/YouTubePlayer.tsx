@@ -25,13 +25,27 @@ export default function YouTubePlayer({ value }: any) {
     const currentElapsed = Number(metadata.elapsed_seconds) || 0;
     
     if (currentElapsed > 0) {
-      console.log(`🎯 [YouTube Engine] Video Siap! Memaksa lompat ke detik: ${currentElapsed}`);
+      console.log(`🎯 [YouTube Engine] Video Siap! Memaksa lompat awal ke detik: ${currentElapsed}`);
       event.target.seekTo(currentElapsed, true);
       event.target.playVideo(); // Paksa putar setelah melompat
     }
   };
 
-  // 🔄 LANGKAH SAKRAL 2: Jaga sinkronisasi berkala (Jika jemaah diam di halaman web)
+  // 🔄 LANGKAH SAKRAL 2: Kejar perubahan state metadata saat pertama kali dimuat (Fix Masalah Refresh)
+  useEffect(() => {
+    const currentElapsed = Number(metadata.elapsed_seconds) || 0;
+    
+    if (playerRef.current && typeof playerRef.current.seekTo === "function" && currentElapsed > 0) {
+      const currentTime = playerRef.current.getCurrentTime();
+      // Melompat jika player masih tertahan di awal siaran (detik 0)
+      if (currentTime < 2 || Math.abs(currentTime - currentElapsed) > 5) {
+        console.log(`🎯 [YouTube Engine] State terisi! Memaksa lompat ke detik berjalan: ${currentElapsed}`);
+        playerRef.current.seekTo(currentElapsed, true);
+      }
+    }
+  }, [metadata.elapsed_seconds]);
+
+  // 🔄 LANGKAH SAKRAL 3: Jaga sinkronisasi berkala (Jika jemaah diam di halaman web)
   useEffect(() => {
     const handleYtSeek = (e: any) => {
       const targetSeconds = e.detail;
