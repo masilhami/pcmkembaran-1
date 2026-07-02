@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import YouTube from "react-youtube";
-import { useAudio } from "@/context/AudioContext"; // Pastikan path context sesuai
+import { useAudio } from "@/context/AudioContext"; 
 
 export default function YouTubePlayer({ value }: any) {
   const { url, caption } = value;
   const { metadata } = useAudio();
   const playerRef = useRef<any>(null);
+  const [initialStart, setInitialStart] = useState<number | null>(null);
 
   if (!url) return null;
 
@@ -17,43 +18,41 @@ export default function YouTubePlayer({ value }: any) {
 
   if (!id) return null;
 
-  // 🎯 LANGKAH SAKRAL 1: Lompat instan saat video benar-benar siap (Mengatasi Masalah Refresh)
+  // 🎯 LANGKAH CERDAS 1: Kunci detik berjalan pertama kali saat data backend mendarat
+  useEffect(() => {
+    if (initialStart === null && metadata.elapsed_seconds && metadata.elapsed_seconds > 0) {
+      console.log(`🚀 [Hydration] Mengunci detik lompatan awal: ${metadata.elapsed_seconds}`);
+      setInitialStart(Number(metadata.elapsed_seconds));
+    }
+  }, [metadata.elapsed_seconds, initialStart]);
+
+  // 🎯 LANGKAH CERDAS 2: Eksekusi paksa di callback onReady agar tidak tertebas buffering browser
   const onPlayerReady = (event: any) => {
     playerRef.current = event.target;
     
-    // Ambil detik berjalan langsung dari context pusat
-    const currentElapsed = Number(metadata.elapsed_seconds) || 0;
+    // Gunakan prioritas: data terkunci awal, atau state terkini
+    const secondsToSeek = initialStart || Number(metadata.elapsed_seconds) || 0;
     
-    if (currentElapsed > 0) {
-      console.log(`🎯 [YouTube Engine] Video Siap! Memaksa lompat awal ke detik: ${currentElapsed}`);
-      event.target.seekTo(currentElapsed, true);
-      event.target.playVideo(); // Paksa putar setelah melompat
+    if (secondsToSeek > 0) {
+      console.log(`🎯 [YouTube Engine] Sistem Siap Seratus Persen! Memaksa lompat ke: ${secondsToSeek} detik`);
+      event.target.seekTo(secondsToSeek, true);
+      
+      // Jika jemaah sudah mengklik tombol ON AIR utama sebelumnya, langsung mainkan videonya
+      if ((window as any).__isRadioPlaying) {
+        event.target.playVideo();
+      }
     }
   };
 
-  // 🔄 LANGKAH SAKRAL 2: Kejar perubahan state metadata saat pertama kali dimuat (Fix Masalah Refresh)
-  useEffect(() => {
-    const currentElapsed = Number(metadata.elapsed_seconds) || 0;
-    
-    if (playerRef.current && typeof playerRef.current.seekTo === "function" && currentElapsed > 0) {
-      const currentTime = playerRef.current.getCurrentTime();
-      // Melompat jika player masih tertahan di awal siaran (detik 0)
-      if (currentTime < 2 || Math.abs(currentTime - currentElapsed) > 5) {
-        console.log(`🎯 [YouTube Engine] State terisi! Memaksa lompat ke detik berjalan: ${currentElapsed}`);
-        playerRef.current.seekTo(currentElapsed, true);
-      }
-    }
-  }, [metadata.elapsed_seconds]);
-
-  // 🔄 LANGKAH SAKRAL 3: Jaga sinkronisasi berkala (Jika jemaah diam di halaman web)
+  // 🔄 LANGKAH CERDAS 3: Sinkronisasi berkala (Jika jemaah diam di halaman web tanpa refresh)
   useEffect(() => {
     const handleYtSeek = (e: any) => {
       const targetSeconds = e.detail;
       if (playerRef.current && typeof playerRef.current.seekTo === "function") {
         const currentTime = playerRef.current.getCurrentTime();
-        // Beri toleransi 5 detik agar tidak melompat-lompat terus setiap polling
-        if (Math.abs(currentTime - targetSeconds) > 5) {
-          console.log(`🔄 [YouTube Engine] Sinkronisasi Lini Masa: Lompat ke ${targetSeconds}`);
+        // Beri toleransi 8 detik agar tidak terjadi stuttering/patah-patah saat polling berjalan
+        if (Math.abs(currentTime - targetSeconds) > 8) {
+          console.log(`🔄 [YouTube API] Menyelaraskan lini masa berkala ke detik: ${targetSeconds}`);
           playerRef.current.seekTo(targetSeconds, true);
         }
       }
@@ -63,7 +62,7 @@ export default function YouTubePlayer({ value }: any) {
     return () => window.removeEventListener("yt-seek-to", handleYtSeek);
   }, []);
 
-  // Konfigurasi pemutar react-youtube
+  // Konfigurasi pemutar terkontrol dengan parameter start dinamis
   const opts = {
     height: "100%",
     width: "100%",
@@ -72,6 +71,8 @@ export default function YouTubePlayer({ value }: any) {
       controls: 1,
       rel: 0,
       modestbranding: 1,
+      // Jika data start sudah terkunci semenjak komponen lahir, langsung suapi ke parameter pemutar Google
+      ...(initialStart && initialStart > 0 ? { start: initialStart } : {})
     },
   };
 
