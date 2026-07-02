@@ -217,7 +217,8 @@ export async function GET() {
         }
 
         if (activeSchedule) {
-          const isYoutube = activeSchedule.broadcastMode === 'youtube_live';
+          // 🟢 FIX SAKRAL: Izinkan mendeteksi youtube_live maupun youtube_static dari Sanity
+          const isYoutube = activeSchedule.broadcastMode === 'youtube_live' || activeSchedule.broadcastMode === 'youtube_static';
           const isLiveRelay = activeSchedule.broadcastMode?.includes('relay') || activeSchedule.broadcastMode === 'live_relay';
           const stationName = config.radioName || "Radio Suara Berkemajuan";
           const startMinutes = timeToMinutes(activeSchedule.startTime);
@@ -226,12 +227,9 @@ export async function GET() {
           if (isYoutube) {
             const videoId = activeSchedule.youtubeVideoId?.trim() || null;
             
-            // 🟢 FIX MUTLAK SINKRONISASI YOUTUBE STATIS:
-            // Kirim kalkulasi selisih detik riil sejak jadwal dimulai ke properti elapsed_seconds, 
-            // agar frontend player bisa memaksa lompat (seekTo) ke menit yang sedang berjalan!
             return NextResponse.json({
               active: true,
-              type: "youtube_live",
+              type: "youtube_live", // Tetap kirim "youtube_live" agar AudioContext.tsx frontend memicu mode YT Player
               youtube_video_id: videoId,
               thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : "/bg-player.png",
               title: activeSchedule.eventName || "Live Streaming YouTube",
