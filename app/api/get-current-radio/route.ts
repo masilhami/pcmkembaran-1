@@ -12,10 +12,9 @@ const ADZAN_DURATION = 300; // 5 Menit
 
 // Jalur rute cadangan aman menggunakan server berkapasitas badak milik archive.org
 const FILLER_PLAYLIST = [
-  { title: "Murottal Jeda - Surah Al-Mulk", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/SurahAlMulk-Saad-Al-Ghamdi.mp3", duration: 415, speaker: "Saad Al-Ghamdi" },
-  { title: "Nasyid Jeda - Rikhie Asbo", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/Rikhie-Asbo.mp3", duration: 5760, speaker: "Rikhie Asbo" },
-  { title: "Murottal Jeda - Surah Al-Waqiah", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/al-waqiah-ust-shidqy.mp3", duration: 780, speaker: "Ust. Shidqy" },
-  { title: "Nasyid Jeda - Hanya Rindu Versi Arab", url: "https://ia800605.us.archive.org/28/items/surah-al-mulk-saad-al-ghamdi/hanya-rindu-versi-arab.mp3", duration: 258, speaker: "Anonim" },
+  { title: "Lagu Religi Jeda - Sholawat", url: "https://archive.org/download/full-album-sholawat-terbaru-terlengkap-syahla-ya-imamarrusli-maulidu-ahmad-muzza/Full%20Album%20Sholawat%20Terbaru%20Terlengkap%20SYAHLA%20-%20Ya%20Imamarrusli%20Maulidu%20Ahmad%20Muzza.mp3", duration: 4380, speaker: "Lagu Religi" },
+  { title: "Nasyid Jeda - Raihan", url: "https://archive.org/download/full-10-lagu-nasyid-raihan-terbaik-sepanjang-zaman/%5BFULL%5D%2010%20Lagu%20Nasyid%20RAIHAN%20Terbaik%20Sepanjang%20Zaman.mp3", duration: 3000, speaker: "Raihan" },
+  { title: "Nasyid Jeda - 10 Lagu Raihan", url: "https://archive.org/download/full-10-lagu-nasyid-raihan-terbaik-sepanjang-zaman-part-2/%5BFULL%5D%2010%20Lagu%20Nasyid%20RAIHAN%20Terbaik%20Sepanjang%20Zaman%20%28PART%202%29.mp3", duration: 2640, speaker: "Raihan" },
   { title: "Murottal Jeda - Al Fatihah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/001-Al-Fatihah.mp3", duration: 27, speaker: "Syaikh Abdullah Al-Mathrud" },
   { title: "Murottal Jeda - Al Baqarah Syaikh Abdullah Al-Mathrud", url: "https://dn710102.ca.archive.org/0/items/abdullahal-mathrud/002-Al-Baqarah.mp3", duration: 7200, speaker: "Syaikh Abdullah Al-Mathrud" },
   { title: "Murottal Jeda - Ali Imron Syaikh Abdullah Al-Mathrud", url: "https://ia801406.us.archive.org/8/items/abdullahal-mathrud/003-Ali-Imran.mp3", duration: 4800, speaker: "Syaikh Abdullah Al-Mathrud" }
