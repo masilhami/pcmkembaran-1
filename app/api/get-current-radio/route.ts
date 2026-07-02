@@ -217,19 +217,19 @@ export async function GET() {
         }
 
         if (activeSchedule) {
-          // 🟢 FIX SAKRAL: Izinkan mendeteksi youtube_live maupun youtube_static dari Sanity
-          const isYoutube = activeSchedule.broadcastMode === 'youtube_live' || activeSchedule.broadcastMode === 'youtube_static';
+          // 🟢 CLEANUP SAKRAL: Murni hanya mendeteksi youtube_live, membuang youtube_static yang sudah tidak dipakai
+          const isYoutubeLive = activeSchedule.broadcastMode === 'youtube_live';
           const isLiveRelay = activeSchedule.broadcastMode?.includes('relay') || activeSchedule.broadcastMode === 'live_relay';
           const stationName = config.radioName || "Radio Suara Berkemajuan";
           const startMinutes = timeToMinutes(activeSchedule.startTime);
           const secondsSinceScheduleStarted = ((currentTotalMinutes - startMinutes) * 60) + currentSecs;
 
-          if (isYoutube) {
+          if (isYoutubeLive) {
             const videoId = activeSchedule.youtubeVideoId?.trim() || null;
             
             return NextResponse.json({
               active: true,
-              type: "youtube_live", // Tetap kirim "youtube_live" agar AudioContext.tsx frontend memicu mode YT Player
+              type: "youtube_live", // Memasang rute tipe youtube_live murni ke AudioContext.tsx
               youtube_video_id: videoId,
               thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : "/bg-player.png",
               title: activeSchedule.eventName || "Live Streaming YouTube",
@@ -241,7 +241,6 @@ export async function GET() {
           }
 
           if (isLiveRelay) {
-            // 🟢 CLEANUP: Jika relay kosong/terputus, kembalikan audio stream default internal domain aktif
             const rawRelayUrl = activeSchedule.relayUrl?.trim() || "";
             const cleanRelayUrl = (rawRelayUrl.includes("ybmsaum.com") || !rawRelayUrl) 
               ? "/radio/stream.php" 
@@ -331,7 +330,6 @@ export async function GET() {
       }, { headers: getSecureHeaders() });
     }
 
-    // 🟢 CLEANUP: Jika data DB kosong/rusak, arahkan ke URL stream relatif lokal agar tidak lompat domain
     const finalTrackUrl = (currentTrack.audio_url?.includes("ybmsaum.com") || !currentTrack.audio_url)
       ? "/radio/stream.php"
       : currentTrack.audio_url;

@@ -118,7 +118,6 @@ export default {
               options: {
                 list: [
                   { title: '🎥 Live YouTube', value: 'youtube_live' },
-                  { title: '📺 Video YouTube Biasa (Statis / Kajian)', value: 'youtube_static' },
                   { title: '🎵 Playlist MP3 (Archive.org Teks URL)', value: 'playlist_mp3' },
                   { title: '📻 Relay Radio FM / Live Stream Lain', value: 'relay_stream' },
                 ],
@@ -148,20 +147,20 @@ export default {
             },
 
             // -----------------------------------------------------------------
-            // FIELD KONDISIONAL: MUNCUL JIKA LIVE YOUTUBE / YOUTUBE STATIS
+            // FIELD KONDISIONAL: MUNCUL JIKA LIVE YOUTUBE (Biasa Di-Mute / Live Video Only)
             // -----------------------------------------------------------------
             {
               name: 'youtubeVideoId',
-              title: 'YouTube Video ID',
+              title: 'YouTube Live Video ID',
               type: 'string',
-              description: 'Masukkan ID video saja dari tautan live streaming atau video biasa YouTube. (Contoh: dQw4w9WgXcQ)',
+              description: 'Masukkan ID video saja dari tautan LIVE STREAMING resmi YouTube. (Contoh: dQw4w9WgXcQ)',
               placeholder: 'dQw4w9WgXcQ',
-              hidden: ({ parent }: any) => parent?.broadcastMode !== 'youtube_live' && parent?.broadcastMode !== 'youtube_static',
+              hidden: ({ parent }: any) => parent?.broadcastMode !== 'youtube_live',
               validation: (rule: Rule) =>
                 rule.custom((value, context: any) => {
                   const mode = context.parent?.broadcastMode;
-                  if ((mode === 'youtube_live' || mode === 'youtube_static') && !value) {
-                    return 'Video ID wajib diisi jika Anda memilih mode berbasis YouTube.';
+                  if (mode === 'youtube_live' && !value) {
+                    return 'Video ID wajib diisi jika Anda memilih mode Live YouTube.';
                   }
                   return true;
                 }),
@@ -259,7 +258,6 @@ export default {
               
               let modeLabel = '🎵 MP3 Playlist'
               if (mode === 'youtube_live') modeLabel = '🎥 YT Live'
-              if (mode === 'youtube_static') modeLabel = '📺 YT Biasa (Statis)'
               if (mode === 'relay_stream') modeLabel = '📻 FM Relay'
               
               const dayLabels: Record<string, string> = {
