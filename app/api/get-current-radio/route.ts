@@ -142,7 +142,7 @@ export async function GET() {
         const waktuSholatMenit = jadwalSholat[namaWaktuSholat];
         const elapsedAdzanSeconds = ((currentTotalMinutes - waktuSholatMenit) * 60) + currentSecs;
 
-        // 🟢 FIX SAKRAL: Hancurkan cache CDN khusus saat adzan tiba (max-age=0)
+        // 🟢 FIX MUTLAK SAKRAL: Hancurkan cache CDN khusus saat adzan tiba (max-age=0)
         // Mencegah delay polling hulu agar adzan berkumandang serentak tanpa tertahan cache SWR
         const adzanHeaders = {
           "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -160,7 +160,7 @@ export async function GET() {
           program_title: "Adzan Otomatis Wilayah Purwokerto",
           audio_url: ADZAN_URL,
           elapsed_seconds: elapsedAdzanSeconds > 10 ? 0 : elapsedAdzanSeconds, 
-        }, { headers: adzanHeaders });
+        }, { headers: adzanHeaders }); // 🟢 FIX: Sekarang header adzanHeaders sudah terpasang mutlak di sini!
       }
     } catch (e) {
       console.error(e);
@@ -354,7 +354,7 @@ export async function GET() {
       artist: emergencyFiller.artist,
       program_title: "Audio Cadangan (Emergency)",
       audio_url: emergencyFiller.audio_url,
-      elapsed_seconds: emergencyFiller.emergencyFiller,
+      elapsed_seconds: emergencyFiller.elapsed_seconds,
       type: "fallback",
     }, { headers: getSecureHeaders() });
   }
