@@ -102,7 +102,7 @@ async function getAdzanMinutesToday(): Promise<{ [key: string]: number }> {
   return { subuh: 275, dzuhur: 710, ashar: 915, maghrib: 1075, isya: 1145 };
 }
 
-// 🎯 KUNCI UTAMA ANTI-BONCOS SWR HEADERS:
+// 🎯 KUNCI UTAMA ANTI-BONCOS SWR HEADERS (UNTUK SIARAN NON-ADZAN):
 // Kita ubah Cache-Control agar Vercel CDN meng-cache respons data radio ini selama 7 detik di Edge.
 const getSecureHeaders = () => {
   return {
@@ -142,6 +142,14 @@ export async function GET() {
         const waktuSholatMenit = jadwalSholat[namaWaktuSholat];
         const elapsedAdzanSeconds = ((currentTotalMinutes - waktuSholatMenit) * 60) + currentSecs;
 
+        // 🟢 FIX SAKRAL: Hancurkan cache CDN khusus saat adzan tiba (max-age=0)
+        // Mencegah delay polling hulu agar adzan berkumandang serentak tanpa tertahan cache SWR
+        const adzanHeaders = {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          "Pragma": "no-cache",
+          "Access-Control-Allow-Origin": "*",
+        };
+
         return NextResponse.json({
           active: true,
           type: "adzan",
@@ -152,7 +160,7 @@ export async function GET() {
           program_title: "Adzan Otomatis Wilayah Purwokerto",
           audio_url: ADZAN_URL,
           elapsed_seconds: elapsedAdzanSeconds > 10 ? 0 : elapsedAdzanSeconds, 
-        }, { headers: getSecureHeaders() });
+        }, { headers: adzanHeaders });
       }
     } catch (e) {
       console.error(e);
@@ -346,7 +354,7 @@ export async function GET() {
       artist: emergencyFiller.artist,
       program_title: "Audio Cadangan (Emergency)",
       audio_url: emergencyFiller.audio_url,
-      elapsed_seconds: emergencyFiller.elapsed_seconds,
+      elapsed_seconds: emergencyFiller.emergencyFiller,
       type: "fallback",
     }, { headers: getSecureHeaders() });
   }
