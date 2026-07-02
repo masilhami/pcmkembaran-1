@@ -309,10 +309,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 🟢 PEMBARUAN SAKRAL: Forced Re-Trigger Playback saat pergantian hulu acara tiba
       const handleAudioSourceSync = (audioUrl: string, elapsedSeconds?: number) => {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
+
+        // 🟢 TAMBALAN SAKRAL 1: Jika jingle sedang aktif berkumandang, LOCK total manipulasi timeline hulu!
+        // Ini mencegah browser kaget (Seek-Failure) yang memicu rollback putaran lagu ke detik 0.
+        if (isJinglePlayingRef.current) {
+          console.log("🤫 Jingle sedang aktif. Menahan sinkronisasi lini masa hulu sementara waktu...");
+          return;
+        }
 
         const cleanTargetUrl = audioUrl.split("?")[0];
         const cleanCurrentUrl = lastSyncedUrlRef.current.split("?")[0];
@@ -348,7 +354,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          // Jika status radio jemaah aktif (isPlaying), paksa jalankan pemutaran ulang acara baru
           if (isPlayingRef.current) {
             if (!isInitialized.current) initAudio();
             audio.volume = volumeRef.current;
