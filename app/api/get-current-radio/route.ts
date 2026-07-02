@@ -35,8 +35,9 @@ function getVirtualTrackFromPlaylist(
   const getDuration = (track: any) => Number(track.duration) || 240; 
   const totalDuration = playlist.reduce((acc, item) => acc + getDuration(item), 0);
 
+  // 🟢 CLEANUP: Alihkan data fallback kosong ke Archive.org murni, bukan sdit.my.id
   if (totalDuration <= 0) {
-    return { title: "Radio Suara Berkemajuan", audio_url: "https://sdit.my.id/radio/stream.php", elapsed_seconds: 0, artist: "PCM Kembaran" };
+    return { title: FILLER_PLAYLIST[0].title, audio_url: FILLER_PLAYLIST[0].url, elapsed_seconds: 0, artist: FILLER_PLAYLIST[0].speaker };
   }
 
   const virtualTimeline = Math.floor(Math.abs(secondsElapsedSinceStart)) % totalDuration;
@@ -53,7 +54,7 @@ function getVirtualTrackFromPlaylist(
 
       return {
         title: finalTitle || "Kajian Pilihan",
-        audio_url: track.url || track.audioFileUrl || "https://sdit.my.id/radio/stream.php", 
+        audio_url: track.url || track.audioFileUrl || FILLER_PLAYLIST[0].url, 
         elapsed_seconds: virtualTimeline - accumulatedTime,
         artist: track.speaker || "PCM Kembaran", 
       };
@@ -63,7 +64,7 @@ function getVirtualTrackFromPlaylist(
 
   return {
     title: playlist[0].trackTitle || playlist[0].title || "Kajian Pilihan",
-    audio_url: playlist[0].url || playlist[0].audioFileUrl || "https://sdit.my.id/radio/stream.php",
+    audio_url: playlist[0].url || playlist[0].audioFileUrl || FILLER_PLAYLIST[0].url,
     elapsed_seconds: 0,
     artist: playlist[0].speaker || "PCM Kembaran",
   };
@@ -103,7 +104,6 @@ async function getAdzanMinutesToday(): Promise<{ [key: string]: number }> {
 
 // 🎯 KUNCI UTAMA ANTI-BONCOS SWR HEADERS:
 // Kita ubah Cache-Control agar Vercel CDN meng-cache respons data radio ini selama 7 detik di Edge.
-// Polling klien dari ratusan jemaah tiap 15 detik akan diredam langsung di CDN tanpa menyentuh database/CPU!
 const getSecureHeaders = () => {
   return {
     "Cache-Control": "public, max-age=7, stale-while-revalidate=15",
@@ -185,7 +185,6 @@ export async function GET() {
         }
       `;
       
-      // Mengamankan API Sanity CMS dengan pembatasan interval fetch 10 detik
       const config = await client.fetch(sanityQuery, {}, { next: { revalidate: 10 } });
 
       if (config?.schedules && Array.isArray(config.schedules)) {
@@ -233,10 +232,10 @@ export async function GET() {
           }
 
           if (isLiveRelay) {
-            // 🎯 PERBAIKAN: Jika relay kosong atau mengarah ke ybmsaum, bersihkan total ke internal sdit.my.id
+            // 🟢 CLEANUP: Jika relay kosong/terputus, kembalikan audio stream default internal domain aktif
             const rawRelayUrl = activeSchedule.relayUrl?.trim() || "";
             const cleanRelayUrl = (rawRelayUrl.includes("ybmsaum.com") || !rawRelayUrl) 
-              ? "https://sdit.my.id/radio/stream.php" 
+              ? "/radio/stream.php" 
               : rawRelayUrl;
 
             return NextResponse.json({
@@ -323,9 +322,9 @@ export async function GET() {
       }, { headers: getSecureHeaders() });
     }
 
-    // 🎯 PERBAIKAN: Jika URL database mengarah ke luar atau kosong, bungkus ke sdit.my.id
+    // 🟢 CLEANUP: Jika data DB kosong/rusak, arahkan ke URL stream relatif lokal agar tidak lompat domain
     const finalTrackUrl = (currentTrack.audio_url?.includes("ybmsaum.com") || !currentTrack.audio_url)
-      ? "https://sdit.my.id/radio/stream.php"
+      ? "/radio/stream.php"
       : currentTrack.audio_url;
 
     return NextResponse.json({

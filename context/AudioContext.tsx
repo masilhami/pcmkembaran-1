@@ -38,13 +38,20 @@ interface AudioContextType {
 
 const AudioContextInstance = createContext<AudioContextType | null>(null);
 
-// OBJEK FALLBACK STANDAR JIKA BACKEND ATAU CMS OFFLINE
+// 🟢 PERBAIKAN SAKRAL 1: Ubah audio_url fallback agar menembak ke domain tempatnya berdiri saat ini
+const getFallbackAudioUrl = () => {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin.replace(/\/$/, "")}/radio/stream.php`;
+  }
+  return "https://pcmkembaran.com/radio/stream.php";
+};
+
 const FALLBACK_RADIO_DATA = {
   active: true,
   type: "playlist_mp3",
   title: "Radio Suara Berkemajuan",
   artist: "Dakwah Berkemajuan Mencerahkan Kehidupan",
-  audio_url: "https://sdit.my.id/radio/stream.php", 
+  audio_url: getFallbackAudioUrl(), // Dinamis mengikuti origin domain aktif
   thumbnail: "/bg-player.png",
   elapsed_seconds: 0
 };
@@ -70,12 +77,16 @@ async function fetchCurrentRadioStatusFromBackend() {
     
     if (!res.ok || (contentType && contentType.includes("text/html"))) {
       console.warn("[Radio PCM API] Endpoint mengembalikan HTML/Eror. Mengalihkan ke data fallback lokal.");
+      
+      // Update audio_url fallback secara real-time sebelum dikembalikan
+      FALLBACK_RADIO_DATA.audio_url = getFallbackAudioUrl();
       return FALLBACK_RADIO_DATA;
     }
 
     return await res.json();
   } catch (error) {
     console.error("[Radio PCM API] Gagal total mengambil status backend, alihkan ke fallback:", error);
+    FALLBACK_RADIO_DATA.audio_url = getFallbackAudioUrl();
     return FALLBACK_RADIO_DATA;
   }
 }
@@ -313,8 +324,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
 
-        // 🔒 TAMBALAN SAKKELAR JINGLE: Kunci total pergeseran timeline agar browser background tab 
-        // tidak kaget dan memicu rollback lagu mp3 ke detik 0 saat jingle aktif bersuara.
         if (isJinglePlayingRef.current) {
           console.log("🤫 Jingle sedang aktif. Menahan sinkronisasi lini masa hulu sementara waktu...");
           return;
@@ -323,7 +332,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const cleanTargetUrl = audioUrl.split("?")[0];
         const cleanCurrentUrl = lastSyncedUrlRef.current.split("?")[0];
 
-        const isLiveStreamPipe = audioUrl.includes("stream.php") || audioUrl.includes("pcmkembaran.com");
+        const isLiveStreamPipe = audioUrl.includes("stream.php") || audioUrl.includes("pcmkembaran.com") || audioUrl.includes("sdit.my.id");
 
         if (cleanCurrentUrl !== cleanTargetUrl) {
           console.log("🔄 Deteksi pergantian acara hulu. Sinkronisasi lini masa baru...");
@@ -355,8 +364,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (isPlayingRef.current) {
-            // 🛡️ TAMBALAN ANTI-CORS DYNAMIC: Matikan audio canvas visualizer node jika 
-            // jalurnya ditarik dari server archive.org/luar agar browser meloloskan playback.
             if (isLiveStreamPipe) {
               if (!isInitialized.current) initAudio();
               audio.setAttribute("crossOrigin", "anonymous");
@@ -474,9 +481,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         audio.src = cacheBusterUrl;
         audio.load();
 
-        const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
+        const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com") || targetUrl.includes("sdit.my.id");
 
-        // 🛡️ DYNAMIC CORS PROTECTION ON MANUALLY TRIGGERED PLAY
         if (isLiveStreamPipe) {
           if (!isInitialized.current) initAudio();
           audio.setAttribute("crossOrigin", "anonymous");
@@ -596,7 +602,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       const sekarang = Date.now();
-      const selisihWaktu = sekarang - lastJingleTimeRef.current;
+      const selisihWaktu = agora = sekarang - lastJingleTimeRef.current;
 
       if (selisihWaktu >= JINGLE_INTERVAL) {
         setMetadata((prev) => {
