@@ -38,7 +38,6 @@ interface AudioContextType {
 
 const AudioContextInstance = createContext<AudioContextType | null>(null);
 
-// 🟢 PERBAIKAN SAKRAL 1: Ubah audio_url fallback agar menembak ke domain tempatnya berdiri saat ini
 const getFallbackAudioUrl = () => {
   if (typeof window !== "undefined") {
     return `${window.location.origin.replace(/\/$/, "")}/radio/stream.php`;
@@ -51,7 +50,7 @@ const FALLBACK_RADIO_DATA = {
   type: "playlist_mp3",
   title: "Radio Suara Berkemajuan",
   artist: "Dakwah Berkemajuan Mencerahkan Kehidupan",
-  audio_url: getFallbackAudioUrl(), // Dinamis mengikuti origin domain aktif
+  audio_url: getFallbackAudioUrl(),
   thumbnail: "/bg-player.png",
   elapsed_seconds: 0
 };
@@ -77,8 +76,6 @@ async function fetchCurrentRadioStatusFromBackend() {
     
     if (!res.ok || (contentType && contentType.includes("text/html"))) {
       console.warn("[Radio PCM API] Endpoint mengembalikan HTML/Eror. Mengalihkan ke data fallback lokal.");
-      
-      // Update audio_url fallback secara real-time sebelum dikembalikan
       FALLBACK_RADIO_DATA.audio_url = getFallbackAudioUrl();
       return FALLBACK_RADIO_DATA;
     }
@@ -102,8 +99,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const lastSyncedUrlRef = useRef("");
   const userStoppedRef = useRef(true); 
   const isAutoSwitchingRef = useRef(false);
-  
-  // 🔒 SAKELAR GAIB: Mencegah tabrakan beruntun penyebab AbortError di browser modern
   const isPlayPendingRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -144,9 +139,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const JINGLE_INTERVAL = 5 * 60 * 1000; 
   const JINGLE_FILE = "https://archive.org/download/jingle-pcm/jingle-pcm.mp3";
 
-  // =================================================================
-  // ⚙️ ENGINE CORE INITIALIZER (WEB AUDIO API NODE PROTECTION)
-  // =================================================================
   const initAudio = useCallback(() => {
     if (isInitialized.current || !audioRef.current) return;
     try {
@@ -304,17 +296,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       const currentType = String(data.type || "").toLowerCase();
 
+      // 🟢 FIX MUTLAK SINKRONISASI TRANSMISI YOUTUBE STATIS & LIVE
       if (currentType === "youtube_live" || currentType.includes("youtube")) {
         resetMp3PlaybackCompletely();
         setYoutubeVideoId(data.youtube_video_id);
         setIsYouTubeLive(true);
+        
+        const targetElapsed = Number(data.elapsed_seconds) || 0;
+
         setMetadata({
           title: data.title || "Live Streaming YouTube",
           artist: data.artist || "PCM Kembaran",
           art: data.thumbnail || "/bg-player.png",
           audio_url: data.audio_url || null,
-          elapsed_seconds: 0
+          elapsed_seconds: targetElapsed
         });
+
+        // Tembakkan event global berisi muatan detik berjalan agar ditangkap komponen pemutar Iframe YT
+        if (targetElapsed > 0 && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("yt-seek-to", { detail: targetElapsed }));
+        }
+
         setListeners(1);
         lastSyncedUrlRef.current = "";
         return;
@@ -602,7 +604,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       const sekarang = Date.now();
-      const selisihWaktu = sekarang - lastJingleTimeRef.current; // 🟢 FIX: Variabel liar 'agora' berhasil dibasmi total!
+      const selisihWaktu = sekarang - lastJingleTimeRef.current;
 
       if (selisihWaktu >= JINGLE_INTERVAL) {
         setMetadata((prev) => {
