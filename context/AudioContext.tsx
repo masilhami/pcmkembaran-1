@@ -313,8 +313,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const audio = audioRef.current;
         if (!audio || !audioUrl || audioUrl.trim() === "" || audioUrl === "null") return;
 
-        // 🟢 TAMBALAN SAKRAL 1: Jika jingle sedang aktif berkumandang, LOCK total manipulasi timeline hulu!
-        // Ini mencegah browser kaget (Seek-Failure) yang memicu rollback putaran lagu ke detik 0.
+        // 🔒 TAMBALAN SAKKELAR JINGLE: Kunci total pergeseran timeline agar browser background tab 
+        // tidak kaget dan memicu rollback lagu mp3 ke detik 0 saat jingle aktif bersuara.
         if (isJinglePlayingRef.current) {
           console.log("🤫 Jingle sedang aktif. Menahan sinkronisasi lini masa hulu sementara waktu...");
           return;
@@ -355,10 +355,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (isPlayingRef.current) {
-            if (!isInitialized.current) initAudio();
+            // 🛡️ TAMBALAN ANTI-CORS DYNAMIC: Matikan audio canvas visualizer node jika 
+            // jalurnya ditarik dari server archive.org/luar agar browser meloloskan playback.
+            if (isLiveStreamPipe) {
+              if (!isInitialized.current) initAudio();
+              audio.setAttribute("crossOrigin", "anonymous");
+            } else {
+              audio.removeAttribute("crossOrigin");
+            }
+
             audio.volume = volumeRef.current;
             
-            if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+            if (isInitialized.current && audioContextRef.current && audioContextRef.current.state === "suspended") {
               audioContextRef.current.resume();
             }
 
@@ -440,8 +448,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setHasError(false);
       isPlayPendingRef.current = true; 
 
-      if (!isInitialized.current) initAudio();
-
       const freshData = await fetchCurrentRadioStatusFromBackend();
       
       let targetUrl = metadata.audio_url;
@@ -470,6 +476,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
         const isLiveStreamPipe = targetUrl.includes("stream.php") || targetUrl.includes("pcmkembaran.com");
 
+        // 🛡️ DYNAMIC CORS PROTECTION ON MANUALLY TRIGGERED PLAY
+        if (isLiveStreamPipe) {
+          if (!isInitialized.current) initAudio();
+          audio.setAttribute("crossOrigin", "anonymous");
+        } else {
+          audio.removeAttribute("crossOrigin");
+        }
+
         if (!isLiveStreamPipe && currentElapsed && currentElapsed > 0) {
           if (audio.readyState >= 1) {
             if (audio.duration && audio.duration !== Infinity) {
@@ -492,7 +506,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       audio.volume = volumeRef.current;
-      if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+      if (isInitialized.current && audioContextRef.current && audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
       }
 
@@ -634,7 +648,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       <audio
         ref={audioRef}
         preload="none"
-        crossOrigin="anonymous" 
         onPause={() => {
           if (!isAutoSwitchingRef.current && userStoppedRef.current) {
             setIsPlaying(false);
