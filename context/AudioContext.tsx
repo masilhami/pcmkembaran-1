@@ -602,7 +602,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       const sekarang = Date.now();
-      const selisihWaktu = agora = sekarang - lastJingleTimeRef.current;
+      const selisihWaktu = sekarang - lastJingleTimeRef.current; // 🟢 FIX: Variabel liar 'agora' berhasil dibasmi total!
 
       if (selisihWaktu >= JINGLE_INTERVAL) {
         setMetadata((prev) => {
